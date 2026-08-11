@@ -1,0 +1,63 @@
+# Environment variables and local secrets
+.env
+.env.*
+*.env
+!.env.example
+!.env.template
+!.env.sample
+
+# Python virtual environments, caches, and build artifacts
+.venv/
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Test, type-checker, linter, and coverage caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local datasets; keep empty-directory placeholders trackable
+/data/raw/*
+!/data/raw/.gitkeep
+/data/processed/*
+!/data/processed/.gitkeep
+
+# Local databases, columnar data, and logs
+*.duckdb
+*.duckdb.wal
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.parquet
+*.log
+logs/
+
+# Operating-system temporary files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# IDE and editor temporary files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
