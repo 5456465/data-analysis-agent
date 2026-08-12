@@ -11,7 +11,7 @@ SQL 是否安全，以及金额是否因多表 Join 被重复计算。本项目�
 
 ## 当前状态
 
-截至 2026-08-07：
+截至 2026-08-11：
 
 ### 已实现
 
@@ -24,10 +24,14 @@ SQL 是否安全，以及金额是否因多表 Join 被重复计算。本项目�
 - 订单级 item/payment 安全聚合 view 和商品类别官方英文映射 view。
 - 14 条 English baseline SQL，覆盖订单、金额、品类、地域、评论和交付分析。
 - pytest 覆盖 CSV 审计、DuckDB 行数、键、Join、时间类型、baseline 和金额粒度风险。
+- 确定性的 `inspect_schema`，以结构化 Python 数据返回 table、view、字段、
+  DuckDB 类型、nullable、primary key 和已确认的数据粒度。
+- 最小只读 `run_readonly_sql` executor：只接受单条 `SELECT` / `WITH ... SELECT`，
+  返回结构化结果和错误，并对 Python 侧返回行数设置确定性上限。
 
 ### 下一阶段
 
-- 实现 `inspect_schema` 和严格只读 SQL executor。
+- 在只读数据库工具基线上实现 English Text-to-SQL 的最小可验证闭环。
 - 为 English Text-to-SQL 准备小型、人工校验的评测集。
 - 在数据库工具测试通过后再接入 LLM，不改变当前英文 Schema。
 
@@ -61,7 +65,8 @@ Schema。产品问答能力尚未实现，因此当前仓库还没有可运行�
   -> 结论、SQL、数据范围、证据和限制
 ```
 
-当前仓库只完成数据基线与测试，不应把目标架构误认为已实现功能。
+当前仓库已完成数据基线、Schema 检查和只读 SQL 执行；不应把其余目标架构
+误认为已实现功能。
 
 ## 数据集
 
@@ -122,6 +127,43 @@ python scripts/baseline_queries.py --query total_order_count
 `freight_value = SUM(order_items.freight_value)` 和按订单预聚合后的
 `payment_value`。不使用笼统的 revenue，也不计算利润、毛利或退款率。
 
+## 检查数据库 Schema
+
+`inspect_schema` 读取实际 DuckDB catalog，并返回不可变的结构化 Python 对象；
+它不生成 SQL，也不连接 LLM：
+
+```python
+from data_analysis_agent import inspect_schema
+
+schema = inspect_schema("data/processed/olist.duckdb")
+for obj in schema.objects:
+    print(obj.name, obj.object_type, obj.grain)
+    for column in obj.columns:
+        print(column.name, column.data_type, column.nullable, column.primary_key)
+```
+
+数据库必须已经存在；连接以 DuckDB `read_only=True` 打开。
+
+## 执行只读 SQL
+
+`run_readonly_sql` 只接受一条 `SELECT` 或 `WITH ... SELECT`，并返回结构化
+`SQLResult`。它不会生成或修复 SQL：
+
+```python
+from data_analysis_agent import run_readonly_sql
+
+result = run_readonly_sql(
+    "data/processed/olist.duckdb",
+    "SELECT COUNT(*) AS order_count FROM orders",
+    max_rows=200,
+)
+print(result.status, result.columns, result.rows, result.truncated)
+```
+
+executor 使用 DuckDB parser 校验 statement 数量和类型，以 `read_only=True`
+连接，并关闭外部文件和扩展访问。它只读取 `max_rows + 1` 行来判断截断，最多向
+Python 应用层返回 `max_rows` 行，不会向用户 SQL 静默添加 `LIMIT`。
+
 ## 运行检查
 
 只运行 item/payment Join 粒度检查：
@@ -164,6 +206,8 @@ python -m pytest
 │   ├── build_duckdb.py          # typed DuckDB 原子构建
 │   └── baseline_queries.py      # 14 条 English baseline SQL
 ├── src/data_analysis_agent/
+│   ├── schema.py                 # deterministic schema inspection
+│   └── sql_executor.py           # safe deterministic read-only SQL
 ├── tests/
 ├── LICENSE
 └── pyproject.toml
@@ -178,6 +222,8 @@ python -m pytest
 - `order_items` 和 `order_payments` 都是一对多表，必须分别按订单预聚合后
   再连接，否则金额会重复。
 - 第一版 DuckDB 不包含 geolocation；需要地理坐标分析时必须先定义邮编聚合规则。
+- 只读 executor 尚未实现查询超时、资源配额或异步取消；当前只限制返回到 Python
+  应用层的行数。
 
 ## License
 

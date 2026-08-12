@@ -2,9 +2,9 @@
 
 ## 1. 文档状态
 
-- 版本：MVP DuckDB 基线 v1.2
-- 更新日期：2026-08-07
-- 当前阶段：DuckDB 与 baseline SQL 完成，下一阶段实现只读查询层
+- 版本：MVP Read-only SQL Execution v1.4
+- 更新日期：2026-08-11
+- 当前阶段：DuckDB、inspect_schema 与只读 SQL executor 完成
 - 规范源：本 Markdown 文件
 - 阅读副本：`docs/PRODUCT_SPEC.docx`
 
@@ -131,6 +131,36 @@ MVP 只使用 Brazilian E-Commerce Public Dataset by Olist：
 Baseline 不使用笼统的 revenue，也不计算数据不支持的 profit、gross margin 或
 refund rate。
 
+### 5.2 Schema inspection
+
+`data_analysis_agent.inspect_schema` 以只读连接查询实际 DuckDB catalog，返回稳定的
+结构化 Python dataclass，而不是仅返回格式化文本。输出包含：
+
+- table / view name 和 object type；
+- 按 catalog ordinal position 排列的 column name 与 DuckDB data type；
+- DuckDB catalog 可可靠读取的 nullable 和 primary key 标记；
+- 仅对项目已确认对象提供的最小 grain metadata。
+
+当前 grain metadata 包含 `orders`、`order_items`、`order_payments`、
+`order_item_summary` 和 `order_payment_summary`。未知粒度返回 `None`，不猜测。
+该模块不生成或执行用户 SQL，不包含 LLM、RAG、Text-to-SQL 或翻译逻辑。
+
+### 5.3 Read-only SQL execution
+
+`data_analysis_agent.run_readonly_sql(database_path, sql, max_rows=200)` 提供最小、
+确定性的查询执行边界：
+
+- 只接受单条 `SELECT` 或 `WITH ... SELECT`；
+- 先检查注释后的首关键字，再使用 DuckDB parser 校验 statement 数量和类型；
+- 使用 `read_only=True` 打开 DuckDB，并关闭外部文件访问及 extension 自动安装/加载；
+- 使用 `fetchmany(max_rows + 1)` 判断截断，最多向 Python 应用层返回 `max_rows` 行；
+- 不向用户 SQL 静默添加 `LIMIT`，因此不改变聚合查询的业务语义；
+- 返回稳定的 `SQLResult`，包含 SQL、列、行、返回行数、截断状态和结构化错误。
+
+错误代码区分 database missing、invalid argument、unsafe SQL、multiple statements、
+invalid SQL、unknown table / column 和其他 execution error。本阶段不包含 SQL 生成、
+LLM repair、timeout 或资源配额。
+
 ## 6. 支持与不支持的业务问题
 
 ### 数据可支持
@@ -170,19 +200,17 @@ refund rate。
 - 8 张核心表的 typed DuckDB 与 3 个可追溯 view
 - 14 条 English baseline SQL
 - DuckDB 行数、主键假设、Join、时间类型和金额守恒测试
+- 结构化、确定性的只读 `inspect_schema` 及其 table、view、类型、错误和稳定性测试
+- 单 statement、只读、行数受限的 `run_readonly_sql` 及结构化成功/错误结果
 
-### 下一阶段：English Text-to-SQL 基础
+### 下一阶段：English Text-to-SQL 基线
 
-- 实现 `inspect_schema`
-- 实现严格只读 SQL executor
 - 建立第一批人工校验的英文问题与 gold SQL
-- 完成数据库工具测试后再接入 LLM
+- 在现有 Schema inspector 和只读 executor 之上接入最小 SQL 生成流程
 
 ### 后续规划
 
-- Schema inspector
 - Metric definition retrieval
-- Read-only SQL executor
 - Controlled Python analysis
 - Chart generation
 - Result validation
@@ -194,7 +222,8 @@ refund rate。
 
 ## 9. 安全与可靠性
 
-- 数据库层必须只读，拒绝写操作、多语句和危险 SQL。
+- 数据库层使用 `read_only=True`，只接受单条 `SELECT` / `WITH ... SELECT`，
+  拒绝写操作、多语句和非 allowlist statement。
 - 原始 CSV、数据库、Parquet、日志、`.env` 和虚拟环境不得进入 Git。
 - 不使用公司、实习单位或个人隐私数据。
 - 无数据、指标歧义或验证失败时不得编造确定性结论。
