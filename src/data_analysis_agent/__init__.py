@@ -13,6 +13,13 @@ from data_analysis_agent.sql_executor import (
     SQLResult,
     run_readonly_sql,
 )
+from data_analysis_agent.sql_generator import (
+    SQLGenerationError,
+    SQLGenerationResult,
+    build_text_to_sql_prompt,
+    format_schema_context,
+    generate_sql,
+)
 
 
 __all__ = [
@@ -22,8 +29,13 @@ __all__ = [
     "GOLD_QUESTIONS",
     "GoldQuestion",
     "SQLExecutionError",
+    "SQLGenerationError",
+    "SQLGenerationResult",
     "SQLResult",
     "SchemaObject",
+    "build_text_to_sql_prompt",
+    "format_schema_context",
+    "generate_sql",
     "inspect_schema",
     "run_readonly_sql",
 ]
