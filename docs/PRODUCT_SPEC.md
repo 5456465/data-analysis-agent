@@ -2,20 +2,23 @@
 
 ## 1. 文档状态
 
-- 版本：MVP Read-only SQL Execution v1.4
-- 更新日期：2026-08-11
-- 当前阶段：DuckDB、inspect_schema 与只读 SQL executor 完成
+- 版本：v1.5
+- 更新日期：2026-08-12
+- 当前阶段：Deterministic agent foundation + English Core Gold Set completed; next stage is minimal English LLM Text-to-SQL generation.
 - 规范源：本 Markdown 文件
 - 阅读副本：`docs/PRODUCT_SPEC.docx`
 
 ## 2. 产品定位
 
-Data Analysis Agent 是一个面向结构化业务数据的可验证多工具分析 Agent。
+Data Analysis Agent 的产品定位是 **Verifiable Multi-Tool Business Data Analysis Agent**，
+即面向结构化业务数据的可验证多工具分析 Agent。
 当前 MVP 中用户使用英文自然语言提问，系统在受控权限下检查指标口径和 Schema，执行只读
 SQL 或确定性 Python 分析，验证结果并返回可追溯证据。
 
-项目重点是工具调用、错误恢复、结果验证和可复现评测，而不是构建企业级
-BI 平台。
+核心分析闭环是 `understand → retrieve metric context → inspect data → choose tools →
+execute → repair → validate → explain`。项目重点是 controlled tool execution、business
+metric correctness、error recovery、result validation、traceability 和 quantitative
+evaluation，而不是单纯的 Text-to-SQL Demo 或企业级 BI 平台。
 
 ### 2.1 语言设计
 
@@ -85,6 +88,8 @@ MVP 只使用 Brazilian E-Commerce Public Dataset by Olist：
 - 审计结果：`docs/DATA_AUDIT.md`
 
 不使用口碑、天池、UCI Online Retail、TPC-H 或模拟多平台电商数据。
+当前数据输入链路明确为 `Olist CSV → typed DuckDB`，不声明支持 Parquet。Parquet 和
+multiple data-source support 均属于 post-MVP 扩展。
 
 ## 4. 实际 DuckDB 表与粒度
 
@@ -119,7 +124,7 @@ MVP 只使用 Brazilian E-Commerce Public Dataset by Olist：
   `payment_value`。
 - `products_with_category_translation` view 同时保留原始葡萄牙语品类与官方英文映射。
 
-### 5.1 Baseline SQL
+### 5.1 Baseline Query 与 Business Metric 的边界
 
 `scripts/baseline_queries.py` 提供 14 条可独立运行的 English baseline SQL。金额
 定义保持分离：
@@ -131,7 +136,40 @@ MVP 只使用 Brazilian E-Commerce Public Dataset by Olist：
 Baseline 不使用笼统的 revenue，也不计算数据不支持的 profit、gross margin 或
 refund rate。
 
-### 5.2 Schema inspection
+Baseline Query 与 Metric Catalog 是两层概念：
+
+- Baseline Query 是人工验证的数据事实和 evaluation reference；Metric Catalog 是产品
+  正式使用的业务指标语义。
+- 两者可以对应，但不要求定义完全相同；不允许为了匹配 Metric Catalog 静默修改既有
+  baseline 的含义。
+- `average_payment_value_per_order` baseline 先将有 payment record 的订单聚合到 order
+  grain，再求订单支付金额的平均值；它不等同于排除 `canceled` / `unavailable` 后的
+  valid-order AOV。
+- `total_item_transaction_value` baseline 是 `SUM(order_items.price)`，不包含 freight 或
+  payment，也不声明为 revenue 或 profit。
+- 未来定义 `avg_order_payment`、`valid_merchandise_value` 等 canonical metric 时，必须
+  明确过滤条件；如果语义不同，应新增对应 baseline，而不是改变旧 baseline。
+
+### 5.2 Metric Catalog / Retrieval
+
+MVP 建立至少 6 个 canonical business metrics。每个 metric 至少包含：
+
+- `canonical_identifier`
+- `english_label`
+- `aliases` / `keywords`
+- `definition`
+- `formula`
+- `filters`
+- `time_granularity`
+- `source_tables`
+- `limitations` / `notes`
+
+`search_metric_definition` 第一版优先使用确定性的 catalog、alias 和 keyword retrieval。
+embedding / vector retrieval 只作为未来的 Metric RAG 增强方案，在指标、业务文档和
+glossary 规模明显扩大后再考虑；不为 6–10 个指标强制引入 vector database。检索不到
+可靠定义或存在口径冲突时，系统必须说明歧义或请求确认，不得猜测公式。
+
+### 5.3 Schema inspection
 
 `data_analysis_agent.inspect_schema` 以只读连接查询实际 DuckDB catalog，返回稳定的
 结构化 Python dataclass，而不是仅返回格式化文本。输出包含：
@@ -145,7 +183,7 @@ refund rate。
 `order_item_summary` 和 `order_payment_summary`。未知粒度返回 `None`，不猜测。
 该模块不生成或执行用户 SQL，不包含 LLM、RAG、Text-to-SQL 或翻译逻辑。
 
-### 5.3 Read-only SQL execution
+### 5.4 Read-only SQL execution
 
 `data_analysis_agent.run_readonly_sql(database_path, sql, max_rows=200)` 提供最小、
 确定性的查询执行边界：
@@ -160,6 +198,14 @@ refund rate。
 错误代码区分 database missing、invalid argument、unsafe SQL、multiple statements、
 invalid SQL、unknown table / column 和其他 execution error。本阶段不包含 SQL 生成、
 LLM repair、timeout 或资源配额。
+
+### 5.5 Controlled Python analysis
+
+保留 Python Analysis Tool，但 SQL 能自然、可靠完成的聚合或窗口计算必须留在 SQL，
+不为了展示 multi-tool 强行转入 Python。Python Tool 只处理 SQL 查询结果上的二次分析，
+例如 anomaly detection、change decomposition、distribution analysis 和不适合由 SQL
+承担的统计后处理。MVP 至少实现 2 个真正有区别的受控 Python functions；模型不得执行
+任意 Python code。
 
 ## 6. 支持与不支持的业务问题
 
@@ -179,15 +225,23 @@ LLM repair、timeout 或资源配额。
 - 当前市场判断：数据为 2016–2018 年历史场景
 - 无证据的未来预测或因果结论
 
-## 7. MVP 目标工作流
+## 7. MVP 目标工作流与编排边界
 
 1. 接收英文自然语言问题；非英文输入在问答入口实现后明确返回 unsupported。
 2. 在需要时检索指标定义。
 3. 检查相关表、字段、类型和关系。
-4. 生成并安全检查只读 SQL。
-5. 执行 SQL；复杂统计只调用白名单 Python 函数。
-6. 检查时间范围、聚合关系、空结果和金额粒度。
+4. simple lookup / basic aggregation 走 `schema → SQL → execute → validate`。
+5. complex diagnostic / multi-step analysis 才进入 `plan_tools`，再按需调用 SQL、受控
+   Python 或图表工具。
+6. 检查时间范围、聚合关系、空结果和金额粒度；可恢复错误进入有限 repair。
 7. 返回结论、SQL、表字段、数据范围、验证状态和限制。
+
+`plan_tools` 是 conditional workflow node，不是所有任务的 mandatory step。MVP 保持
+single Agent + explicit workflow/state。最终 workflow integration 阶段优先考虑
+LangGraph，以承载 state、conditional routing、retry、repair 和 trace，但当前阶段不提前
+引入。LangChain 不是产品硬性要求，仅在 model、tool 或 structured-output abstraction
+确实有收益时采用。Multi-Agent 不属于 MVP；MCP 属于 post-MVP extension，当前本地
+DuckDB + Python tools 不存在真实 MCP 边界。
 
 ## 8. 当前实现状态
 
@@ -202,21 +256,30 @@ LLM repair、timeout 或资源配额。
 - DuckDB 行数、主键假设、Join、时间类型和金额守恒测试
 - 结构化、确定性的只读 `inspect_schema` 及其 table、view、类型、错误和稳定性测试
 - 单 statement、只读、行数受限的 `run_readonly_sql` 及结构化成功/错误结果
+- **English Core Gold Set v0.1**：16 questions，其中 14 answerable、2 unanswerable；
+  覆盖 basic queries、aggregation、multi-table、delivery analysis、grain-sensitive
+  questions 和 unsupported questions；用于验证问题理解、合理的 tables、正确 grain、
+  metric 语义和最终查询结果，不要求模型生成逐字符相同的 SQL
+- 完整 pytest：63 passed
 
-### 下一阶段：English Text-to-SQL 基线
+### 下一阶段：Minimal English LLM Text-to-SQL generation
 
-- 建立第一批人工校验的英文问题与 gold SQL
-- 在现有 Schema inspector 和只读 executor 之上接入最小 SQL 生成流程
+- 在现有 Schema inspector、只读 executor 和 English Core Gold Set v0.1 之上接入最小
+  English LLM Text-to-SQL generation
 
 ### 后续规划
 
-- Metric definition retrieval
+- Metric Catalog / deterministic retrieval
 - Controlled Python analysis
 - Chart generation
 - Result validation
 - 显式工作流或 LangGraph
 - Streamlit Demo
-- 可复现 Agent 评测
+- 将完整 evaluation set 逐步扩展到至少 30 条；扩展随 metric semantics、trend、
+  MoM / YoY、diagnostic、tool routing、repair、adversarial / boundary cases 的实现推进，
+  不机械扩充当前 16 道题
+- embedding / vector Metric RAG、MCP、Parquet 与 multiple data-source support 均为
+  post-MVP extension
 
 规划项在代码和测试实际存在前，不得在 README 或简历中声明为已完成。
 
@@ -224,6 +287,11 @@ LLM repair、timeout 或资源配额。
 
 - 数据库层使用 `read_only=True`，只接受单条 `SELECT` / `WITH ... SELECT`，
   拒绝写操作、多语句和非 allowlist statement。
+- executor 不改写 SQL；通过 `fetchmany(max_rows + 1)` 最多返回 `max_rows` 行，并用
+  `truncated` 表示是否仍有更多结果，保留原 SQL 以支持 reproducibility、tracing 和
+  auditing。
+- query timeout / resource quota 当前尚未实现，属于 reliability hardening / later MVP
+  task，不得描述为现有 executor 能力。
 - 原始 CSV、数据库、Parquet、日志、`.env` 和虚拟环境不得进入 Git。
 - 不使用公司、实习单位或个人隐私数据。
 - 无数据、指标歧义或验证失败时不得编造确定性结论。

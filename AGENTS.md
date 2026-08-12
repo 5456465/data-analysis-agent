@@ -20,7 +20,7 @@ The primary goal is to demonstrate:
 - LLM API integration
 - Tool calling
 - Agent workflow orchestration
-- RAG-based metric retrieval
+- Business metric retrieval
 - Structured output
 - Error recovery
 - Result validation
@@ -155,6 +155,21 @@ For every coding task:
 Do not claim that a feature is complete unless its implementation and tests
 exist in the repository.
 
+Implementation source-of-truth rules:
+
+- Exact implementation behavior is defined by source code and tests.
+- Tests are the executable contract for deterministic module behavior.
+- Function-level implementation details do not need to be duplicated in
+  `docs/PRODUCT_SPEC.md`.
+- Documentation should describe stable design intent, not mirror every code
+  change.
+- Details such as the exact `run_readonly_sql` fetch strategy, error codes, and
+  internal helpers belong in source code and tests unless they materially
+  change a documented product requirement.
+
+Do not run `git commit`, `git push`, `git reset`, or `git clean` unless the
+developer explicitly requests it.
+
 ## 7. Code Quality
 
 All Python code should:
@@ -267,16 +282,64 @@ milestone complete, run the full test suite.
 
 ## 12. Documentation
 
-Keep the following documents current:
+Use the following maintenance rules instead of updating every document after
+each small feature:
+
+### README
+
+Update `README.md` only at a milestone or when the current feature status,
+installation, usage, or other reader-facing behavior changes materially.
+
+### Product specification
+
+Update `docs/PRODUCT_SPEC.md` only when one or more of the following changes:
+
+- Product scope
+- MVP requirements
+- Non-goals
+- Acceptance criteria
+- Important product-level design decisions
+
+Do not automatically update `docs/PRODUCT_SPEC.md` for an ordinary function
+addition, internal implementation change, test-count change, or Prompt tuning.
+
+`docs/PRODUCT_SPEC.docx` is a formatted reading copy, not the continuously
+synchronized source of truth. Synchronize or export it from the Markdown
+version only when the developer explicitly requests it or at an important
+milestone. A normal coding task must not automatically modify or regenerate the
+DOCX file.
+
+### Dataset documentation
+
+Update `docs/DATASET.md` or `docs/DATA_AUDIT.md` only when the data source, data
+version, audited facts, or documented data limitations change.
+
+### Additional documentation
+
+Create a separate architecture or evaluation document only when the developer
+explicitly requests it or when demonstrated project complexity requires one.
+Do not create new documentation automatically because a development phase has
+started.
+
+For a normal small coding task:
+
+1. Change the implementation.
+2. Update or add tests.
+3. Run the relevant validation.
+4. Do not update the PRD, DOCX, or other documentation unless the task
+   materially changes documented behavior or the developer explicitly requests
+   a documentation update.
+
+When documentation is updated, maintain the relevant document rather than all
+documents by default. The repository may contain:
 
 - `README.md`
 - `docs/PRODUCT_SPEC.md`
-- `docs/PRODUCT_SPEC.docx` as the formatted reading copy
+- `docs/PRODUCT_SPEC.docx`
 - `docs/DATASET.md`
 - `docs/DATA_AUDIT.md`
 
-Create `docs/ARCHITECTURE.md` and `docs/EVALUATION.md` when those implementation
-phases begin. Do not present planned architecture or evaluation metrics as
+Do not present planned architecture, features, or evaluation metrics as
 implemented before corresponding code and tests exist.
 
 Current dataset facts that all documentation and code must preserve:
