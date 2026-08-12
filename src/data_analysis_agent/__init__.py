@@ -1,5 +1,10 @@
 """Data Analysis Agent package."""
 
+from data_analysis_agent.deepseek_provider import (
+    DEEPSEEK_BASE_URL,
+    DEEPSEEK_MODEL,
+    DeepSeekTextToSQLModel,
+)
 from data_analysis_agent.gold_questions import GOLD_QUESTIONS, GoldQuestion
 from data_analysis_agent.schema import (
     ColumnSchema,
@@ -25,7 +30,10 @@ from data_analysis_agent.sql_generator import (
 __all__ = [
     "ColumnSchema",
     "DatabaseSchema",
+    "DEEPSEEK_BASE_URL",
+    "DEEPSEEK_MODEL",
     "DEFAULT_MAX_ROWS",
+    "DeepSeekTextToSQLModel",
     "GOLD_QUESTIONS",
     "GoldQuestion",
     "SQLExecutionError",
