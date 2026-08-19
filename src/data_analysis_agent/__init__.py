@@ -26,6 +26,12 @@ from data_analysis_agent.sql_generator import (
     format_schema_context,
     generate_sql,
 )
+from data_analysis_agent.sql_repair import (
+    SQLRepairError,
+    SQLRepairResult,
+    build_sql_repair_prompt,
+    repair_sql,
+)
 
 
 __all__ = [
@@ -42,12 +48,16 @@ __all__ = [
     "SQLGenerationError",
     "SQLGenerationResult",
     "SQLResult",
+    "SQLRepairError",
+    "SQLRepairResult",
     "SchemaObject",
     "answer_question",
     "build_text_to_sql_prompt",
+    "build_sql_repair_prompt",
     "format_schema_context",
     "generate_sql",
     "inspect_schema",
+    "repair_sql",
     "run_readonly_sql",
 ]
 
