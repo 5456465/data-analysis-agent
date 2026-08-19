@@ -6,6 +6,7 @@ from data_analysis_agent.deepseek_provider import (
     DeepSeekTextToSQLModel,
 )
 from data_analysis_agent.gold_questions import GOLD_QUESTIONS, GoldQuestion
+from data_analysis_agent.question_service import QuestionAnswerResult, answer_question
 from data_analysis_agent.schema import (
     ColumnSchema,
     DatabaseSchema,
@@ -36,11 +37,13 @@ __all__ = [
     "DeepSeekTextToSQLModel",
     "GOLD_QUESTIONS",
     "GoldQuestion",
+    "QuestionAnswerResult",
     "SQLExecutionError",
     "SQLGenerationError",
     "SQLGenerationResult",
     "SQLResult",
     "SchemaObject",
+    "answer_question",
     "build_text_to_sql_prompt",
     "format_schema_context",
     "generate_sql",
