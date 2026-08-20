@@ -1,5 +1,11 @@
 """Data Analysis Agent package."""
 
+from data_analysis_agent.analysis_planner import (
+    PythonAnalysisPlan,
+    PythonAnalysisPlanError,
+    build_python_analysis_plan_prompt,
+    generate_python_analysis_plan,
+)
 from data_analysis_agent.deepseek_provider import (
     DEEPSEEK_BASE_URL,
     DEEPSEEK_MODEL,
@@ -67,6 +73,8 @@ __all__ = [
     "GOLD_QUESTIONS",
     "GoldQuestion",
     "QuestionAnswerResult",
+    "PythonAnalysisPlan",
+    "PythonAnalysisPlanError",
     "PythonAnalysisError",
     "PythonAnalysisRequest",
     "PythonAnalysisResult",
@@ -80,12 +88,14 @@ __all__ = [
     "ToolRouteDecision",
     "ToolRoutingError",
     "answer_question",
+    "build_python_analysis_plan_prompt",
     "build_text_to_sql_prompt",
     "build_sql_repair_prompt",
     "build_tool_routing_prompt",
     "format_business_semantics_context",
     "format_schema_context",
     "generate_sql",
+    "generate_python_analysis_plan",
     "inspect_schema",
     "repair_sql",
     "route_question",
