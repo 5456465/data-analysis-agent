@@ -1,0 +1,231 @@
+"""Tests for minimal LLM-based tool routing decisions."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from data_analysis_agent.tool_router import (
+    ToolRouteDecision,
+    ToolRoutingError,
+    build_tool_routing_prompt,
+    route_question,
+)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How many orders are in the dataset?",
+        "List all customer states ranked by unique customer count.",
+        "What percentage of orders contain multiple items?",
+    ],
+)
+def test_sql_native_questions_route_to_sql_only(question: str) -> None:
+    result = route_question(
+        question,
+        lambda prompt: json.dumps(
+            {
+                "status": "success",
+                "route": "sql_only",
+                "python_operation": None,
+                "reason": "SQL can answer this aggregation directly.",
+            }
+        ),
+    )
+
+    assert result == ToolRouteDecision(
+        question=question,
+        route="sql_only",
+        python_operation=None,
+        reason="SQL can answer this aggregation directly.",
+        status="success",
+        error=None,
+    )
+
+
+def test_descriptive_statistics_route_to_describe() -> None:
+    result = route_question(
+        "Describe the distribution of order payment values.",
+        lambda prompt: {
+            "status": "success",
+            "route": "sql_then_python",
+            "python_operation": "describe",
+            "reason": "The request asks for descriptive statistics.",
+        },
+    )
+
+    assert result.status == "success"
+    assert result.route == "sql_then_python"
+    assert result.python_operation == "describe"
+
+
+def test_pearson_correlation_routes_to_correlation() -> None:
+    result = route_question(
+        "What is the Pearson correlation between delivery delay and review score?",
+        lambda prompt: json.dumps(
+            {
+                "status": "success",
+                "route": "sql_then_python",
+                "python_operation": "correlation",
+                "reason": "The request explicitly asks for Pearson correlation.",
+            }
+        ),
+    )
+
+    assert result.status == "success"
+    assert result.route == "sql_then_python"
+    assert result.python_operation == "correlation"
+
+
+def test_prompt_contains_question_and_explicit_tool_boundaries() -> None:
+    question = "Describe order payment values."
+
+    prompt = build_tool_routing_prompt(question)
+
+    assert prompt == build_tool_routing_prompt(question)
+    assert question in prompt
+    assert "Prefer sql_only by default" in prompt
+    assert "describe: descriptive statistics" in prompt
+    assert "correlation: Pearson correlation" in prompt
+    assert "Python never accesses the database" in prompt
+    assert "Regression, clustering, forecasting" in prompt
+    assert "Do not generate SQL" in prompt
+
+
+def test_malformed_json_returns_invalid_model_output() -> None:
+    result = route_question("How many orders are there?", lambda prompt: "not json")
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_model_output"
+
+
+def test_malformed_field_type_returns_invalid_model_output() -> None:
+    result = route_question(
+        "How many orders are there?",
+        lambda prompt: {
+            "status": "success",
+            "route": ["sql_only"],
+            "python_operation": None,
+            "reason": "SQL can answer this.",
+        },
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_model_output"
+
+
+def test_model_exception_returns_model_error() -> None:
+    def failing_model(prompt: str):
+        raise RuntimeError("provider unavailable")
+
+    result = route_question("How many orders are there?", failing_model)
+
+    assert result.error == ToolRoutingError(
+        code="model_error",
+        message="provider unavailable",
+    )
+
+
+def test_unsupported_route_returns_structured_error() -> None:
+    result = route_question(
+        "Create a forecast.",
+        lambda prompt: {
+            "status": "success",
+            "route": "python_only",
+            "python_operation": None,
+            "reason": "Use Python.",
+        },
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "unsupported_route"
+
+
+def test_unsupported_python_operation_returns_structured_error() -> None:
+    result = route_question(
+        "Fit a regression model.",
+        lambda prompt: {
+            "status": "success",
+            "route": "sql_then_python",
+            "python_operation": "regression",
+            "reason": "Run regression after SQL.",
+        },
+    )
+
+    assert result.status == "error"
+    assert result.error == ToolRoutingError(
+        code="unsupported_route",
+        message="Unsupported Python operation: 'regression'",
+    )
+
+
+def test_model_can_reject_request_with_no_supported_route() -> None:
+    result = route_question(
+        "Forecast next year's sales.",
+        lambda prompt: {
+            "status": "error",
+            "error": "Forecasting is not supported by the available tools.",
+        },
+    )
+
+    assert result.route is None
+    assert result.python_operation is None
+    assert result.error == ToolRoutingError(
+        code="unsupported_route",
+        message="Forecasting is not supported by the available tools.",
+    )
+
+
+@pytest.mark.parametrize("question", ["", "   ", None])
+def test_invalid_question_is_rejected_without_calling_model(question) -> None:
+    called = False
+
+    def model(prompt: str):
+        nonlocal called
+        called = True
+        return {"status": "success", "route": "sql_only", "reason": "SQL."}
+
+    result = route_question(question, model)
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_argument"
+    assert called is False
+
+
+def test_sql_then_python_without_operation_is_invalid_model_output() -> None:
+    result = route_question(
+        "Describe order payment values.",
+        lambda prompt: {
+            "status": "success",
+            "route": "sql_then_python",
+            "python_operation": None,
+            "reason": "Use Python after SQL.",
+        },
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_model_output"
+
+
+def test_routing_output_containing_sql_is_rejected() -> None:
+    result = route_question(
+        "How many orders are there?",
+        lambda prompt: {
+            "status": "success",
+            "route": "sql_only",
+            "python_operation": None,
+            "reason": "Use SQL.",
+            "sql": "SELECT COUNT(*) FROM orders",
+        },
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_model_output"

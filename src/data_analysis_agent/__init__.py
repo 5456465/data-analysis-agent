@@ -45,6 +45,12 @@ from data_analysis_agent.sql_repair import (
     build_sql_repair_prompt,
     repair_sql,
 )
+from data_analysis_agent.tool_router import (
+    ToolRouteDecision,
+    ToolRoutingError,
+    build_tool_routing_prompt,
+    route_question,
+)
 
 
 __all__ = [
@@ -71,14 +77,18 @@ __all__ = [
     "SQLRepairError",
     "SQLRepairResult",
     "SchemaObject",
+    "ToolRouteDecision",
+    "ToolRoutingError",
     "answer_question",
     "build_text_to_sql_prompt",
     "build_sql_repair_prompt",
+    "build_tool_routing_prompt",
     "format_business_semantics_context",
     "format_schema_context",
     "generate_sql",
     "inspect_schema",
     "repair_sql",
+    "route_question",
     "run_python_analysis",
     "run_readonly_sql",
 ]
