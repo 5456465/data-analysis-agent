@@ -19,6 +19,12 @@ from data_analysis_agent.tool_router import (
     [
         "How many orders are in the dataset?",
         "What is the average payment value per order?",
+        "Give me descriptive statistics for payment values.",
+        (
+            "Give me summary statistics including mean, standard deviation, "
+            "median, min, and max for item price."
+        ),
+        "What is the Pearson correlation between item price and freight value?",
         "List all customer states ranked by unique customer count.",
         "What percentage of orders contain multiple items?",
     ],
@@ -46,47 +52,20 @@ def test_sql_native_questions_route_to_sql_only(question: str) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "question",
-    [
-        "Give me descriptive statistics for payment values.",
-        "Give me summary statistics for item price.",
-    ],
-)
-def test_descriptive_statistics_route_to_describe(question: str) -> None:
+def test_structured_sql_then_python_output_contract_remains_supported() -> None:
     result = route_question(
-        question,
+        "Apply a supported Python post-processing operation after SQL retrieval.",
         lambda prompt: {
             "status": "success",
             "route": "sql_then_python",
             "python_operation": "describe",
-            "reason": "The request asks for descriptive statistics.",
+            "reason": "This request requires supported post-processing.",
         },
     )
 
     assert result.status == "success"
     assert result.route == "sql_then_python"
     assert result.python_operation == "describe"
-
-
-def test_pearson_correlation_routes_to_correlation() -> None:
-    result = route_question(
-        "What is the Pearson correlation between item price and freight value?",
-        lambda prompt: json.dumps(
-            {
-                "status": "success",
-                "route": "sql_then_python",
-                "python_operation": "correlation",
-                "reason": "The request explicitly asks for Pearson correlation.",
-            }
-        ),
-    )
-
-    assert result.status == "success"
-    assert result.route == "sql_then_python"
-    assert result.python_operation == "correlation"
-
-
 def test_prompt_contains_question_and_explicit_tool_boundaries() -> None:
     question = "Describe order payment values."
 
@@ -94,10 +73,11 @@ def test_prompt_contains_question_and_explicit_tool_boundaries() -> None:
 
     assert prompt == build_tool_routing_prompt(question)
     assert question in prompt
-    assert "TAKE PRECEDENCE over SQL expressiveness" in prompt
-    assert "even though SQL could technically compute" in prompt
-    assert "even though the database may provide CORR()" in prompt
-    assert "prefer sql_only for ordinary aggregation and querying" in prompt
+    assert "Prefer the smallest reliable tool chain" in prompt
+    assert "directly, naturally, and efficiently produce the final" in prompt
+    assert "Do not route to Python merely because Python supports" in prompt
+    assert "Avoid unnecessary transfer of large raw datasets" in prompt
+    assert "should use sql_only" in prompt
     assert "describe: descriptive statistics" in prompt
     assert "correlation: Pearson correlation" in prompt
     assert "Python never accesses the database" in prompt
@@ -112,16 +92,11 @@ def test_prompt_contains_minimal_policy_examples() -> None:
     assert "What is the average payment value per order?" in prompt
     assert "Give me descriptive statistics for payment values." in prompt
     assert (
-        "Summarize the distribution of item price using descriptive statistics."
-        in prompt
-    )
-    assert (
         "What is the Pearson correlation between item price and freight value?"
         in prompt
     )
-    assert "Decision: sql_only with python_operation null." in prompt
-    assert "Decision: sql_then_python with python_operation describe." in prompt
-    assert "Decision: sql_then_python with python_operation correlation." in prompt
+    assert prompt.count("Decision: sql_only with python_operation null.") == 4
+    assert "Decision: sql_then_python" not in prompt
 
 
 def test_malformed_json_returns_invalid_model_output() -> None:

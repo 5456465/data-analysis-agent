@@ -50,19 +50,22 @@ def build_tool_routing_prompt(question: str) -> str:
     return f"""You route an English Olist business analysis question to one supported execution path.
 
 Available paths:
-- sql_only: Use read-only SQL for lookup, filtering, joins, counts, sums, simple averages, percentages, grouping, ranking, top-N, and other ordinary SQL-native queries.
-- sql_then_python: First use read-only SQL to produce a small tabular result, then run exactly one controlled Python operation over that result.
+- sql_only: Use read-only SQL when DuckDB can directly and naturally produce the final result, including lookup, filtering, joins, counts, sums, averages, percentages, grouping, ranking, top-N, descriptive aggregation, and SQL-native Pearson correlation.
+- sql_then_python: Use read-only SQL to produce tabular data, then run exactly one controlled Python operation only when the requested final task genuinely requires post-processing that SQL should not naturally own.
 
 The only supported Python operations are:
 - describe: descriptive statistics for one or more numeric result columns.
 - correlation: Pearson correlation between exactly two numeric result columns.
 
 Routing rules:
-- The current tool policy, not SQL technical expressiveness, determines the route.
-- Python-supported analysis operations TAKE PRECEDENCE over SQL expressiveness.
-- If the user explicitly requests descriptive statistics, summary statistics, or asks to describe numeric variables, choose sql_then_python with python_operation describe. Do this even though SQL could technically compute AVG, STDDEV, MEDIAN, MIN, and MAX.
-- If the user explicitly requests Pearson correlation or correlation between numeric variables, choose sql_then_python with python_operation correlation. Do this even though the database may provide CORR().
-- After applying those two precedence rules, prefer sql_only for ordinary aggregation and querying.
+- Prefer the smallest reliable tool chain.
+- Use sql_only when DuckDB can directly, naturally, and efficiently produce the final requested result.
+- Do not route to Python merely because Python supports the operation.
+- Descriptive statistics limited to count, mean, standard deviation, median, minimum, and maximum are SQL-native final calculations and should use sql_only.
+- Pearson correlation that DuckDB can directly calculate with CORR() is a SQL-native final calculation and should use sql_only.
+- Use sql_then_python only when a supported task genuinely requires post-processing of SQL-produced tabular data that SQL should not naturally own.
+- Avoid unnecessary transfer of large raw datasets from DuckDB into Python.
+- SQL_THEN_PYTHON remains available for supported post-processing, but the current tool set may make some questions SQL_ONLY.
 - Python never accesses the database, reads files, or executes arbitrary code. SQL must retrieve and shape its input first.
 - Regression, clustering, forecasting, machine learning, anomaly detection, and all other Python operations are unsupported.
 - Do not generate SQL, execute a tool, answer the question, or add an execution plan.
@@ -74,11 +77,9 @@ Routing examples:
 - Question: What is the average payment value per order?
   Decision: sql_only with python_operation null.
 - Question: Give me descriptive statistics for payment values.
-  Decision: sql_then_python with python_operation describe.
-- Question: Summarize the distribution of item price using descriptive statistics.
-  Decision: sql_then_python with python_operation describe.
+  Decision: sql_only with python_operation null.
 - Question: What is the Pearson correlation between item price and freight value?
-  Decision: sql_then_python with python_operation correlation.
+  Decision: sql_only with python_operation null.
 
 Return exactly one JSON object in one of these forms:
 {{"status":"success","route":"sql_only","python_operation":null,"reason":"Brief reason."}}
