@@ -50,7 +50,7 @@ def build_tool_routing_prompt(question: str) -> str:
     return f"""You route an English Olist business analysis question to one supported execution path.
 
 Available paths:
-- sql_only: Use read-only SQL for lookup, filtering, joins, counts, sums, averages, percentages, grouping, ranking, top-N, and other SQL-native aggregation.
+- sql_only: Use read-only SQL for lookup, filtering, joins, counts, sums, simple averages, percentages, grouping, ranking, top-N, and other ordinary SQL-native queries.
 - sql_then_python: First use read-only SQL to produce a small tabular result, then run exactly one controlled Python operation over that result.
 
 The only supported Python operations are:
@@ -58,12 +58,27 @@ The only supported Python operations are:
 - correlation: Pearson correlation between exactly two numeric result columns.
 
 Routing rules:
-- Prefer sql_only by default when SQL can naturally and reliably answer the question.
-- Choose sql_then_python only when the question genuinely requires one of the two supported Python operations.
+- The current tool policy, not SQL technical expressiveness, determines the route.
+- Python-supported analysis operations TAKE PRECEDENCE over SQL expressiveness.
+- If the user explicitly requests descriptive statistics, summary statistics, or asks to describe numeric variables, choose sql_then_python with python_operation describe. Do this even though SQL could technically compute AVG, STDDEV, MEDIAN, MIN, and MAX.
+- If the user explicitly requests Pearson correlation or correlation between numeric variables, choose sql_then_python with python_operation correlation. Do this even though the database may provide CORR().
+- After applying those two precedence rules, prefer sql_only for ordinary aggregation and querying.
 - Python never accesses the database, reads files, or executes arbitrary code. SQL must retrieve and shape its input first.
 - Regression, clustering, forecasting, machine learning, anomaly detection, and all other Python operations are unsupported.
 - Do not generate SQL, execute a tool, answer the question, or add an execution plan.
 - If no supported route can reliably fulfill the request, return a structured error rather than inventing a capability.
+
+Routing examples:
+- Question: How many orders are in the dataset?
+  Decision: sql_only with python_operation null.
+- Question: What is the average payment value per order?
+  Decision: sql_only with python_operation null.
+- Question: Give me descriptive statistics for payment values.
+  Decision: sql_then_python with python_operation describe.
+- Question: Summarize the distribution of item price using descriptive statistics.
+  Decision: sql_then_python with python_operation describe.
+- Question: What is the Pearson correlation between item price and freight value?
+  Decision: sql_then_python with python_operation correlation.
 
 Return exactly one JSON object in one of these forms:
 {{"status":"success","route":"sql_only","python_operation":null,"reason":"Brief reason."}}

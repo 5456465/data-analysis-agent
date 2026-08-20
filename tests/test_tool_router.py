@@ -18,6 +18,7 @@ from data_analysis_agent.tool_router import (
     "question",
     [
         "How many orders are in the dataset?",
+        "What is the average payment value per order?",
         "List all customer states ranked by unique customer count.",
         "What percentage of orders contain multiple items?",
     ],
@@ -45,9 +46,16 @@ def test_sql_native_questions_route_to_sql_only(question: str) -> None:
     )
 
 
-def test_descriptive_statistics_route_to_describe() -> None:
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Give me descriptive statistics for payment values.",
+        "Give me summary statistics for item price.",
+    ],
+)
+def test_descriptive_statistics_route_to_describe(question: str) -> None:
     result = route_question(
-        "Describe the distribution of order payment values.",
+        question,
         lambda prompt: {
             "status": "success",
             "route": "sql_then_python",
@@ -63,7 +71,7 @@ def test_descriptive_statistics_route_to_describe() -> None:
 
 def test_pearson_correlation_routes_to_correlation() -> None:
     result = route_question(
-        "What is the Pearson correlation between delivery delay and review score?",
+        "What is the Pearson correlation between item price and freight value?",
         lambda prompt: json.dumps(
             {
                 "status": "success",
@@ -86,12 +94,34 @@ def test_prompt_contains_question_and_explicit_tool_boundaries() -> None:
 
     assert prompt == build_tool_routing_prompt(question)
     assert question in prompt
-    assert "Prefer sql_only by default" in prompt
+    assert "TAKE PRECEDENCE over SQL expressiveness" in prompt
+    assert "even though SQL could technically compute" in prompt
+    assert "even though the database may provide CORR()" in prompt
+    assert "prefer sql_only for ordinary aggregation and querying" in prompt
     assert "describe: descriptive statistics" in prompt
     assert "correlation: Pearson correlation" in prompt
     assert "Python never accesses the database" in prompt
     assert "Regression, clustering, forecasting" in prompt
     assert "Do not generate SQL" in prompt
+
+
+def test_prompt_contains_minimal_policy_examples() -> None:
+    prompt = build_tool_routing_prompt("Route this question.")
+
+    assert "How many orders are in the dataset?" in prompt
+    assert "What is the average payment value per order?" in prompt
+    assert "Give me descriptive statistics for payment values." in prompt
+    assert (
+        "Summarize the distribution of item price using descriptive statistics."
+        in prompt
+    )
+    assert (
+        "What is the Pearson correlation between item price and freight value?"
+        in prompt
+    )
+    assert "Decision: sql_only with python_operation null." in prompt
+    assert "Decision: sql_then_python with python_operation describe." in prompt
+    assert "Decision: sql_then_python with python_operation correlation." in prompt
 
 
 def test_malformed_json_returns_invalid_model_output() -> None:
