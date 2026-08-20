@@ -14,7 +14,13 @@ from pathlib import Path
 from typing import Any
 
 from data_analysis_agent.deepseek_provider import DeepSeekTextToSQLModel
-from data_analysis_agent.gold_questions import GOLD_QUESTIONS, GoldQuestion
+from data_analysis_agent.gold_questions import (
+    GOLD_QUESTIONS,
+    GoldQuestion,
+    LabelAlias,
+    RankingComparison,
+    TemporalComparison,
+)
 from data_analysis_agent.question_service import QuestionAnswerResult, answer_question
 from data_analysis_agent.sql_executor import SQLResult, run_readonly_sql
 from data_analysis_agent.sql_generator import TextToSQLModel
@@ -29,6 +35,7 @@ else:
 
 NUMERIC_ABS_TOLERANCE = 0.01
 NUMERIC_REL_TOLERANCE = 1e-9
+ValueMatcher = Callable[[object, object, int], bool]
 
 
 @dataclass(frozen=True)
@@ -90,9 +97,51 @@ def _is_number(value: object) -> bool:
     return isinstance(value, (int, float, Decimal)) and not isinstance(value, bool)
 
 
-def _values_match(actual: object, expected: object) -> bool:
+def _calendar_month(value: object) -> tuple[int, int] | None:
+    if isinstance(value, date):
+        return value.year, value.month
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip()
+    if len(normalized) == 7:
+        normalized += "-01"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    return parsed.year, parsed.month
+
+
+def _canonicalize_label(
+    value: object,
+    aliases: tuple[LabelAlias, ...],
+) -> object:
+    if not isinstance(value, str):
+        return value
+    for alias in aliases:
+        if value == alias.canonical or value in alias.aliases:
+            return alias.canonical
+    return value
+
+
+def _values_match(
+    actual: object,
+    expected: object,
+    *,
+    temporal_granularity: str | None = None,
+    label_aliases: tuple[LabelAlias, ...] = (),
+) -> bool:
     if expected is None or actual is None:
         return actual is expected
+    if temporal_granularity == "month":
+        actual_month = _calendar_month(actual)
+        expected_month = _calendar_month(expected)
+        if actual_month is not None and expected_month is not None:
+            return actual_month == expected_month
+
+    actual = _canonicalize_label(actual, label_aliases)
+    expected = _canonicalize_label(expected, label_aliases)
     if isinstance(expected, int) and not isinstance(expected, bool):
         return actual == expected
     if _is_number(actual) and _is_number(expected):
@@ -112,6 +161,7 @@ def _values_match(actual: object, expected: object) -> bool:
 def _rows_match_unordered(
     actual_rows: tuple[tuple[Any, ...], ...],
     expected_rows: tuple[tuple[Any, ...], ...],
+    value_matcher: ValueMatcher,
 ) -> bool:
     if len(actual_rows) != len(expected_rows):
         return False
@@ -124,8 +174,10 @@ def _rows_match_unordered(
                 for index, expected_row in enumerate(unmatched)
                 if len(actual_row) == len(expected_row)
                 and all(
-                    _values_match(actual, expected)
-                    for actual, expected in zip(actual_row, expected_row, strict=True)
+                    value_matcher(actual, expected, column_index)
+                    for column_index, (actual, expected) in enumerate(
+                        zip(actual_row, expected_row, strict=True)
+                    )
                 )
             ),
             None,
@@ -136,7 +188,82 @@ def _rows_match_unordered(
     return True
 
 
-def results_match(actual: ResultSnapshot, expected: ResultSnapshot) -> bool:
+def _rows_match_ordered(
+    actual_rows: tuple[tuple[Any, ...], ...],
+    expected_rows: tuple[tuple[Any, ...], ...],
+    value_matcher: ValueMatcher,
+) -> bool:
+    if len(actual_rows) != len(expected_rows):
+        return False
+    return all(
+        len(actual_row) == len(expected_row)
+        and all(
+            value_matcher(actual, expected, column_index)
+            for column_index, (actual, expected) in enumerate(
+                zip(actual_row, expected_row, strict=True)
+            )
+        )
+        for actual_row, expected_row in zip(
+            actual_rows,
+            expected_rows,
+            strict=True,
+        )
+    )
+
+
+def _ranking_is_valid(
+    rows: tuple[tuple[Any, ...], ...],
+    metric_position: int,
+    ranking: RankingComparison,
+    value_matcher: ValueMatcher,
+) -> bool:
+    for previous_row, current_row in zip(rows, rows[1:]):
+        previous = previous_row[metric_position]
+        current = current_row[metric_position]
+        if value_matcher(previous, current, metric_position):
+            continue
+        if previous is None:
+            return False
+        if current is None:
+            continue
+        try:
+            if ranking.direction == "descending" and previous < current:
+                return False
+            if ranking.direction == "ascending" and previous > current:
+                return False
+        except TypeError:
+            return False
+    return True
+
+
+def _rows_match_ranked(
+    actual_rows: tuple[tuple[Any, ...], ...],
+    expected_rows: tuple[tuple[Any, ...], ...],
+    metric_position: int,
+    ranking: RankingComparison,
+    value_matcher: ValueMatcher,
+) -> bool:
+    if not _rows_match_unordered(actual_rows, expected_rows, value_matcher):
+        return False
+    if not ranking.ties_may_reorder:
+        return _rows_match_ordered(actual_rows, expected_rows, value_matcher)
+    return _ranking_is_valid(
+        actual_rows,
+        metric_position,
+        ranking,
+        value_matcher,
+    )
+
+
+def results_match(
+    actual: ResultSnapshot,
+    expected: ResultSnapshot,
+    *,
+    order_sensitive: bool = False,
+    temporal_comparisons: tuple[TemporalComparison, ...] = (),
+    ranking: RankingComparison | None = None,
+    label_aliases: tuple[LabelAlias, ...] = (),
+) -> bool:
     """Compare result values, allowing a relevant projection of reference columns."""
 
     actual_width = len(actual.columns)
@@ -155,11 +282,57 @@ def results_match(actual: ResultSnapshot, expected: ResultSnapshot) -> bool:
         )
     candidate_projections.extend(permutations(range(expected_width), actual_width))
 
+    temporal_by_column = {
+        comparison.column: comparison.granularity
+        for comparison in temporal_comparisons
+    }
+    aliases_by_column: dict[str, list[LabelAlias]] = {}
+    for alias in label_aliases:
+        aliases_by_column.setdefault(alias.column, []).append(alias)
+
     for projection in candidate_projections:
+        projected_columns = tuple(expected.columns[index] for index in projection)
         expected_rows = tuple(
             tuple(row[index] for index in projection) for row in expected.rows
         )
-        if _rows_match_unordered(actual.rows, expected_rows):
+
+        def value_matcher(
+            actual_value: object,
+            expected_value: object,
+            column_index: int,
+        ) -> bool:
+            column = projected_columns[column_index]
+            return _values_match(
+                actual_value,
+                expected_value,
+                temporal_granularity=temporal_by_column.get(column),
+                label_aliases=tuple(aliases_by_column.get(column, ())),
+            )
+
+        if ranking is not None:
+            if ranking.metric_column not in projected_columns:
+                continue
+            metric_position = projected_columns.index(ranking.metric_column)
+            matches = _rows_match_ranked(
+                actual.rows,
+                expected_rows,
+                metric_position,
+                ranking,
+                value_matcher,
+            )
+        elif order_sensitive:
+            matches = _rows_match_ordered(
+                actual.rows,
+                expected_rows,
+                value_matcher,
+            )
+        else:
+            matches = _rows_match_unordered(
+                actual.rows,
+                expected_rows,
+                value_matcher,
+            )
+        if matches:
             return True
     return False
 
@@ -204,7 +377,14 @@ def _failure_reason(
         return False, "execution_error"
 
     actual = ResultSnapshot.from_sql_result(result.execution_result)
-    if results_match(actual, expected):
+    if results_match(
+        actual,
+        expected,
+        order_sensitive=question.order_sensitive,
+        temporal_comparisons=question.temporal_comparisons,
+        ranking=question.ranking,
+        label_aliases=question.label_aliases,
+    ):
         return True, None
     return False, "semantic_wrong_answer"
 

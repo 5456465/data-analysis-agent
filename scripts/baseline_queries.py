@@ -115,7 +115,9 @@ BASELINE_QUERIES: tuple[BaselineQuery, ...] = (
             GROUP BY
                 category.product_category_name,
                 category.product_category_name_english
-            ORDER BY item_transaction_value DESC NULLS LAST
+            ORDER BY
+                item_transaction_value DESC NULLS LAST,
+                category.product_category_name ASC NULLS LAST
             LIMIT 10
         """,
     ),

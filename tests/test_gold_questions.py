@@ -9,7 +9,7 @@ import pytest
 
 from data_analysis_agent import GOLD_QUESTIONS, GoldQuestion, inspect_schema
 from data_analysis_agent.sql_executor import run_readonly_sql
-from scripts.baseline_queries import BASELINE_QUERIES
+from scripts.baseline_queries import BASELINE_QUERIES, get_query
 from scripts.build_duckdb import build_database
 
 
@@ -130,3 +130,37 @@ def test_contains_required_grain_sensitive_questions() -> None:
     ].expected_grain
     assert all("order grain" in question.expected_grain for question in grain_questions.values())
 
+
+def test_order_status_question_declares_descending_ranking_contract() -> None:
+    question = next(question for question in GOLD_QUESTIONS if question.id == "GQ-002")
+    normalized = question.question.lower()
+
+    assert question.order_sensitive is True
+    assert "all order statuses" in normalized
+    assert "highest to lowest" in normalized
+    assert "order count" in normalized
+
+
+def test_top_category_baseline_has_deterministic_top_ten_ordering(
+    database_path: Path,
+) -> None:
+    baseline = get_query("top_product_categories_by_item_transaction_value")
+    normalized_sql = " ".join(baseline.sql.split())
+
+    assert (
+        "ORDER BY item_transaction_value DESC NULLS LAST, "
+        "category.product_category_name ASC NULLS LAST"
+    ) in normalized_sql
+    assert "LIMIT 10" in normalized_sql
+
+    result = run_readonly_sql(database_path, baseline.sql)
+
+    assert result.status == "success"
+    assert result.returned_row_count == 10
+    ranking = tuple((row[3], row[0]) for row in result.rows)
+    assert ranking == tuple(
+        sorted(
+            ranking,
+            key=lambda item: (-item[0], item[1] is None, item[1] or ""),
+        )
+    )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from data_analysis_agent.metric_catalog import format_business_semantics_context
 from data_analysis_agent.schema import ColumnSchema, DatabaseSchema, SchemaObject
 from data_analysis_agent.sql_generator import (
     SQLGenerationError,
@@ -81,6 +82,39 @@ def test_prompt_contains_question_and_real_schema_names_and_columns() -> None:
     assert "payment_value: DECIMAL(38,2)" in prompt
     assert "only tables, views, and columns present" in prompt
     assert "SELECT or WITH ... SELECT" in prompt
+
+
+def test_prompt_contains_deterministic_business_semantics_context() -> None:
+    prompt = build_text_to_sql_prompt(
+        "What is the average review score?",
+        SCHEMA,
+    )
+
+    expected_context = format_business_semantics_context()
+    assert f"Business semantics context:\n{expected_context}" in prompt
+    assert "average_review_score" in prompt
+    assert "average_items_per_order" in prompt
+    assert "explicit_top_bottom_n" in prompt
+
+
+def test_semantics_prompt_preserves_structured_model_output_contract() -> None:
+    captured_prompts: list[str] = []
+    sql = "SELECT AVG(review_score) FROM order_reviews"
+
+    def model(prompt: str):
+        captured_prompts.append(prompt)
+        return {"status": "success", "sql": sql}
+
+    result = generate_sql("What is the average review score?", SCHEMA, model)
+
+    assert result == SQLGenerationResult(
+        question="What is the average review score?",
+        sql=sql,
+        status="success",
+        error=None,
+    )
+    assert len(captured_prompts) == 1
+    assert "Business semantics context:" in captured_prompts[0]
 
 
 def test_prompt_does_not_include_gold_answers_or_baseline_sql() -> None:

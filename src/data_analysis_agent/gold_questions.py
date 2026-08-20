@@ -14,6 +14,34 @@ GoldCategory = Literal[
     "grain_sensitive",
     "unanswerable",
 ]
+TemporalGranularity = Literal["month"]
+RankingDirection = Literal["ascending", "descending"]
+
+
+@dataclass(frozen=True)
+class TemporalComparison:
+    """Temporal equivalence declared for one reference result column."""
+
+    column: str
+    granularity: TemporalGranularity
+
+
+@dataclass(frozen=True)
+class RankingComparison:
+    """Primary ranking semantics for an ordered multi-row result."""
+
+    metric_column: str
+    direction: RankingDirection
+    ties_may_reorder: bool = True
+
+
+@dataclass(frozen=True)
+class LabelAlias:
+    """Finite equivalent labels for one reference result column."""
+
+    column: str
+    canonical: str
+    aliases: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -30,6 +58,10 @@ class GoldQuestion:
     baseline_key: str | None = None
     reference_sql: str | None = None
     unanswerable_reason: str | None = None
+    order_sensitive: bool = False
+    temporal_comparisons: tuple[TemporalComparison, ...] = ()
+    ranking: RankingComparison | None = None
+    label_aliases: tuple[LabelAlias, ...] = ()
 
 
 GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
@@ -45,13 +77,18 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
     ),
     GoldQuestion(
         id="GQ-002",
-        question="How many orders are there by status?",
+        question=(
+            "List all order statuses with their order counts, ranked from highest "
+            "to lowest by order count."
+        ),
         category="basic",
         answerable=True,
         metric_definition="Order count grouped by the source order_status value.",
         expected_grain="one row per order_status, calculated from order grain",
         expected_tables=("orders",),
         baseline_key="order_count_by_status",
+        order_sensitive=True,
+        ranking=RankingComparison("order_count", "descending"),
     ),
     GoldQuestion(
         id="GQ-003",
@@ -74,10 +111,14 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
         expected_grain="one row per calendar month, calculated from order grain",
         expected_tables=("orders",),
         baseline_key="monthly_order_count",
+        temporal_comparisons=(TemporalComparison("order_month", "month"),),
     ),
     GoldQuestion(
         id="GQ-005",
-        question="Which states have the most unique customers?",
+        question=(
+            "List all customer states ranked by unique customer count, from "
+            "highest to lowest."
+        ),
         category="aggregation",
         answerable=True,
         metric_definition=(
@@ -86,16 +127,22 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
         expected_grain="one row per customer_state at unique-customer grain",
         expected_tables=("customers",),
         baseline_key="customer_distribution_by_state",
+        order_sensitive=True,
+        ranking=RankingComparison("unique_customer_count", "descending"),
     ),
     GoldQuestion(
         id="GQ-006",
-        question="Which states have the most sellers?",
+        question=(
+            "List all seller states ranked by seller count, from highest to lowest."
+        ),
         category="aggregation",
         answerable=True,
         metric_definition="Count of unique seller rows by seller_state.",
         expected_grain="one row per seller_state at seller grain",
         expected_tables=("sellers",),
         baseline_key="seller_distribution_by_state",
+        order_sensitive=True,
+        ranking=RankingComparison("seller_count", "descending"),
     ),
     GoldQuestion(
         id="GQ-007",
@@ -126,7 +173,8 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
     GoldQuestion(
         id="GQ-009",
         question=(
-            "Which product categories have the highest item transaction value?"
+            "What are the top 10 product categories by total item transaction "
+            "value, ranked from highest to lowest?"
         ),
         category="multi_table",
         answerable=True,
@@ -137,12 +185,15 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
         expected_grain="one row per product category, aggregated from order-item grain",
         expected_tables=("order_items", "products_with_category_translation"),
         baseline_key="top_product_categories_by_item_transaction_value",
+        order_sensitive=True,
+        ranking=RankingComparison("item_transaction_value", "descending"),
     ),
     GoldQuestion(
         id="GQ-010",
         question=(
-            "How does average review score differ between delayed and on-time "
-            "deliveries?"
+            "Among review records linked to orders with both actual and estimated "
+            "delivery timestamps, what is the average review score for deliveries "
+            "after the estimate versus deliveries on or before the estimate?"
         ),
         category="multi_table",
         answerable=True,
@@ -155,12 +206,21 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
         ),
         expected_tables=("order_reviews", "orders"),
         baseline_key="delivery_delay_and_review_score",
+        label_aliases=(
+            LabelAlias("delivery_status", "delayed", ("after_estimate",)),
+            LabelAlias(
+                "delivery_status",
+                "on_time_or_early",
+                ("on_or_before_estimate",),
+            ),
+        ),
     ),
     GoldQuestion(
         id="GQ-011",
         question=(
-            "What percentage of delivered orders arrived after their estimated "
-            "delivery date?"
+            "Among orders with both actual and estimated delivery timestamps, what "
+            "percentage have an actual delivery timestamp later than the estimated "
+            "delivery timestamp?"
         ),
         category="delivery_analysis",
         answerable=True,
@@ -174,7 +234,10 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
     ),
     GoldQuestion(
         id="GQ-012",
-        question="What is the average payment value per order?",
+        question=(
+            "Among orders with at least one payment record, what is the average "
+            "total payment value per order?"
+        ),
         category="grain_sensitive",
         answerable=True,
         metric_definition=(
@@ -246,4 +309,3 @@ GOLD_QUESTIONS: tuple[GoldQuestion, ...] = (
         ),
     ),
 )
-

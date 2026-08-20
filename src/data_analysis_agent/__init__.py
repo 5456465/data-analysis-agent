@@ -6,6 +6,11 @@ from data_analysis_agent.deepseek_provider import (
     DeepSeekTextToSQLModel,
 )
 from data_analysis_agent.gold_questions import GOLD_QUESTIONS, GoldQuestion
+from data_analysis_agent.metric_catalog import (
+    BUSINESS_SEMANTICS_V1,
+    BusinessSemanticRule,
+    format_business_semantics_context,
+)
 from data_analysis_agent.question_service import QuestionAnswerResult, answer_question
 from data_analysis_agent.schema import (
     ColumnSchema,
@@ -35,6 +40,8 @@ from data_analysis_agent.sql_repair import (
 
 
 __all__ = [
+    "BUSINESS_SEMANTICS_V1",
+    "BusinessSemanticRule",
     "ColumnSchema",
     "DatabaseSchema",
     "DEEPSEEK_BASE_URL",
@@ -54,6 +61,7 @@ __all__ = [
     "answer_question",
     "build_text_to_sql_prompt",
     "build_sql_repair_prompt",
+    "format_business_semantics_context",
     "format_schema_context",
     "generate_sql",
     "inspect_schema",

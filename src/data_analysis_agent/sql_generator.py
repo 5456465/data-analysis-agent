@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, Protocol, TypeAlias
 
+from data_analysis_agent.metric_catalog import format_business_semantics_context
 from data_analysis_agent.schema import DatabaseSchema
 
 
@@ -72,6 +73,7 @@ def build_text_to_sql_prompt(question: str, schema: DatabaseSchema) -> str:
         raise ValueError("question must be a non-empty string.")
 
     schema_context = format_schema_context(schema)
+    business_semantics_context = format_business_semantics_context()
     return f"""You generate DuckDB SQL for the Olist analytics database.
 
 Generate one read-only DuckDB SQL query that answers the user's question using only the provided schema.
@@ -88,6 +90,9 @@ Rules:
 Return exactly one JSON object in one of these forms:
 {{"status":"success","sql":"SELECT ..."}}
 {{"status":"error","error":"Reason the SQL cannot be generated reliably."}}
+
+Business semantics context:
+{business_semantics_context}
 
 Schema context:
 {schema_context}
