@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Literal, TypeAlias
 
@@ -18,7 +20,11 @@ PythonAnalysisErrorCode = Literal[
     "insufficient_data",
     "zero_variance",
     "unsupported_operation",
+    "invalid_period_column",
 ]
+
+GrowthPeriod: TypeAlias = str | date | datetime
+_YEAR_MONTH_PATTERN = re.compile(r"^(\d{4})-(0[1-9]|1[0-2])$")
 
 
 @dataclass(frozen=True)
@@ -52,8 +58,27 @@ class CorrelationResult:
     paired_count: int
 
 
+@dataclass(frozen=True)
+class GrowthPoint:
+    """One chronologically ordered period-over-period growth observation."""
+
+    period: GrowthPeriod
+    value: float
+    previous_value: float | None
+    absolute_change: float | None
+    growth_rate: float | None
+
+
+@dataclass(frozen=True)
+class GrowthResult:
+    """Complete ordered growth series, including its first baseline period."""
+
+    points: tuple[GrowthPoint, ...]
+    period_count: int
+
+
 PythonAnalysisPayload: TypeAlias = (
-    tuple[ColumnDescription, ...] | CorrelationResult
+    tuple[ColumnDescription, ...] | CorrelationResult | GrowthResult
 )
 
 
@@ -95,7 +120,7 @@ def run_python_analysis(
             "operation must be a non-empty string.",
         )
     operation = request.operation
-    if operation not in {"describe", "correlation"}:
+    if operation not in {"describe", "correlation", "calculate_growth"}:
         return _error_result(
             operation,
             "unsupported_operation",
@@ -130,6 +155,19 @@ def run_python_analysis(
 
     if operation == "describe":
         return _describe(column_names, table_rows, request.columns)
+    if operation == "calculate_growth":
+        if len(request.columns) != 2:
+            return _error_result(
+                operation,
+                "invalid_argument",
+                "calculate_growth requires exactly a period column and a value column.",
+            )
+        return _calculate_growth(
+            column_names,
+            table_rows,
+            request.columns[0],
+            request.columns[1],
+        )
     if len(request.columns) != 2:
         return _error_result(
             operation,
@@ -273,6 +311,133 @@ def _correlation(
         ),
         error=None,
     )
+
+
+def _calculate_growth(
+    column_names: tuple[str, ...],
+    rows: tuple[tuple[object, ...], ...],
+    period_column: str,
+    value_column: str,
+) -> PythonAnalysisResult:
+    period_index = column_names.index(period_column)
+    value_index = column_names.index(value_column)
+    normalized_rows: list[tuple[tuple[int, ...], GrowthPeriod, float]] = []
+    period_kind: str | None = None
+
+    for row in rows:
+        period = row[period_index]
+        normalized_period = _normalize_period(period)
+        if normalized_period is None:
+            return _error_result(
+                "calculate_growth",
+                "invalid_period_column",
+                f"Column {period_column} contains an unsupported or NULL period value.",
+            )
+        current_kind, sort_key, output_period = normalized_period
+        if period_kind is None:
+            period_kind = current_kind
+        elif current_kind != period_kind:
+            return _error_result(
+                "calculate_growth",
+                "invalid_period_column",
+                f"Column {period_column} mixes incompatible period representations.",
+            )
+
+        value = row[value_index]
+        if not _is_finite_number(value):
+            return _error_result(
+                "calculate_growth",
+                "non_numeric_column",
+                f"Column {value_column} contains a non-numeric value.",
+            )
+        normalized_rows.append((sort_key, output_period, float(value)))
+
+    if len(normalized_rows) < 2:
+        return _error_result(
+            "calculate_growth",
+            "insufficient_data",
+            "calculate_growth requires at least two valid period rows.",
+        )
+
+    normalized_rows.sort(key=lambda item: item[0])
+    if any(
+        current[0] == previous[0]
+        for previous, current in zip(normalized_rows, normalized_rows[1:])
+    ):
+        return _error_result(
+            "calculate_growth",
+            "invalid_period_column",
+            f"Column {period_column} contains duplicate periods.",
+        )
+
+    points: list[GrowthPoint] = []
+    previous_value: float | None = None
+    for _, period, value in normalized_rows:
+        if previous_value is None:
+            absolute_change = None
+            growth_rate = None
+        else:
+            absolute_change = value - previous_value
+            growth_rate = (
+                None
+                if previous_value == 0
+                else absolute_change / previous_value
+            )
+        points.append(
+            GrowthPoint(
+                period=period,
+                value=value,
+                previous_value=previous_value,
+                absolute_change=absolute_change,
+                growth_rate=growth_rate,
+            )
+        )
+        previous_value = value
+
+    return PythonAnalysisResult(
+        operation="calculate_growth",
+        status="success",
+        result=GrowthResult(points=tuple(points), period_count=len(points)),
+        error=None,
+    )
+
+
+def _normalize_period(
+    value: object,
+) -> tuple[str, tuple[int, ...], GrowthPeriod] | None:
+    if isinstance(value, datetime):
+        offset = value.utcoffset()
+        if offset is not None:
+            normalized = value.astimezone(timezone.utc).replace(tzinfo=None)
+            kind = "aware_datetime"
+        else:
+            normalized = value
+            kind = "datetime"
+        return (
+            kind,
+            (
+                normalized.year,
+                normalized.month,
+                normalized.day,
+                normalized.hour,
+                normalized.minute,
+                normalized.second,
+                normalized.microsecond,
+            ),
+            value,
+        )
+    if isinstance(value, date):
+        return "date", (value.year, value.month, value.day), value
+    if isinstance(value, str):
+        match = _YEAR_MONTH_PATTERN.fullmatch(value)
+        if match is None:
+            return None
+        year = int(match.group(1))
+        month = int(match.group(2))
+        if year == 0:
+            return None
+        return "year_month", (year, month), value
+    return None
 
 
 def _numeric_column_values(

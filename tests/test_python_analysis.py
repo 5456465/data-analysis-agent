@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
+
 import pytest
 
 from data_analysis_agent.python_analysis import (
     ColumnDescription,
     CorrelationResult,
+    GrowthPoint,
+    GrowthResult,
     PythonAnalysisError,
     PythonAnalysisRequest,
     PythonAnalysisResult,
@@ -232,3 +236,161 @@ def test_structured_success_result_schema_is_stable() -> None:
         ),
         error=None,
     )
+
+
+def test_calculate_growth_returns_complete_ordered_growth_series() -> None:
+    result = run_python_analysis(
+        columns=("month", "transaction_value"),
+        rows=(("2018-01", 100.0), ("2018-02", 120.0), ("2018-03", 90.0)),
+        request=PythonAnalysisRequest(
+            "calculate_growth",
+            ("month", "transaction_value"),
+        ),
+    )
+
+    assert result.status == "success"
+    assert result.error is None
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.period_count == 3
+    assert result.result.points == (
+        GrowthPoint("2018-01", 100.0, None, None, None),
+        GrowthPoint("2018-02", 120.0, 100.0, 20.0, pytest.approx(0.2)),
+        GrowthPoint("2018-03", 90.0, 120.0, -30.0, pytest.approx(-0.25)),
+    )
+
+
+def test_calculate_growth_sorts_unordered_date_rows() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(
+            (date(2018, 3, 1), 90),
+            (date(2018, 1, 1), 100),
+            (date(2018, 2, 1), 120),
+        ),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert tuple(point.period for point in result.result.points) == (
+        date(2018, 1, 1),
+        date(2018, 2, 1),
+        date(2018, 3, 1),
+    )
+
+
+def test_calculate_growth_supports_datetime_periods() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(
+            (datetime(2018, 2, 1, 12), 110),
+            (datetime(2018, 1, 1, 12), 100),
+        ),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert result.status == "success"
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points[1].growth_rate == pytest.approx(0.1)
+
+
+def test_calculate_growth_keeps_absolute_change_when_previous_value_is_zero() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(("2018-01", 0), ("2018-02", 25)),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    second_point = result.result.points[1]
+    assert second_point.previous_value == 0.0
+    assert second_point.absolute_change == 25.0
+    assert second_point.growth_rate is None
+
+
+@pytest.mark.parametrize(
+    "request_columns",
+    [("missing", "value"), ("period", "missing")],
+)
+def test_calculate_growth_rejects_unknown_columns(request_columns) -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(("2018-01", 100), ("2018-02", 120)),
+        request=PythonAnalysisRequest("calculate_growth", request_columns),
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "unknown_column"
+
+
+def test_calculate_growth_rejects_non_numeric_value() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(("2018-01", 100), ("2018-02", "120")),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "non_numeric_column"
+
+
+def test_calculate_growth_rejects_null_period() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(("2018-01", 100), (None, 120)),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_period_column"
+
+
+def test_calculate_growth_rejects_insufficient_period_rows() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(("2018-01", 100),),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "insufficient_data"
+
+
+@pytest.mark.parametrize(
+    "periods",
+    [
+        (("January 2018", 100), ("February 2018", 120)),
+        (("2018-1", 100), ("2018-02", 120)),
+        (("0000-01", 100), ("0000-02", 120)),
+        (("2018-01", 100), (date(2018, 2, 1), 120)),
+        (("2018-01", 100), ("2018-01", 120)),
+    ],
+)
+def test_calculate_growth_rejects_unreliable_period_representation(periods) -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=periods,
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_period_column"
+
+
+def test_calculate_growth_requires_exactly_two_analysis_columns() -> None:
+    result = run_python_analysis(
+        columns=("period", "value", "extra"),
+        rows=(("2018-01", 100, 1), ("2018-02", 120, 2)),
+        request=PythonAnalysisRequest(
+            "calculate_growth",
+            ("period", "value", "extra"),
+        ),
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "invalid_argument"

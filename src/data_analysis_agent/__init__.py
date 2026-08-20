@@ -26,6 +26,8 @@ from data_analysis_agent.multi_tool_service import (
 from data_analysis_agent.python_analysis import (
     ColumnDescription,
     CorrelationResult,
+    GrowthPoint,
+    GrowthResult,
     PythonAnalysisError,
     PythonAnalysisRequest,
     PythonAnalysisResult,
@@ -79,6 +81,8 @@ __all__ = [
     "DeepSeekTextToSQLModel",
     "GOLD_QUESTIONS",
     "GoldQuestion",
+    "GrowthPoint",
+    "GrowthResult",
     "MultiToolQuestionError",
     "MultiToolQuestionResult",
     "QuestionAnswerResult",
