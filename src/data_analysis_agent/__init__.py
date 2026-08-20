@@ -11,6 +11,14 @@ from data_analysis_agent.metric_catalog import (
     BusinessSemanticRule,
     format_business_semantics_context,
 )
+from data_analysis_agent.python_analysis import (
+    ColumnDescription,
+    CorrelationResult,
+    PythonAnalysisError,
+    PythonAnalysisRequest,
+    PythonAnalysisResult,
+    run_python_analysis,
+)
 from data_analysis_agent.question_service import QuestionAnswerResult, answer_question
 from data_analysis_agent.schema import (
     ColumnSchema,
@@ -43,6 +51,8 @@ __all__ = [
     "BUSINESS_SEMANTICS_V1",
     "BusinessSemanticRule",
     "ColumnSchema",
+    "ColumnDescription",
+    "CorrelationResult",
     "DatabaseSchema",
     "DEEPSEEK_BASE_URL",
     "DEEPSEEK_MODEL",
@@ -51,6 +61,9 @@ __all__ = [
     "GOLD_QUESTIONS",
     "GoldQuestion",
     "QuestionAnswerResult",
+    "PythonAnalysisError",
+    "PythonAnalysisRequest",
+    "PythonAnalysisResult",
     "SQLExecutionError",
     "SQLGenerationError",
     "SQLGenerationResult",
@@ -66,6 +79,7 @@ __all__ = [
     "generate_sql",
     "inspect_schema",
     "repair_sql",
+    "run_python_analysis",
     "run_readonly_sql",
 ]
 

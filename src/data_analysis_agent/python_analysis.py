@@ -1,0 +1,328 @@
+"""Deterministic numeric analysis over already-structured tabular data."""
+
+from __future__ import annotations
+
+import math
+import statistics
+from collections.abc import Sequence
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Literal, TypeAlias
+
+
+PythonAnalysisStatus = Literal["success", "error"]
+PythonAnalysisErrorCode = Literal[
+    "invalid_argument",
+    "unknown_column",
+    "non_numeric_column",
+    "insufficient_data",
+    "zero_variance",
+    "unsupported_operation",
+]
+
+
+@dataclass(frozen=True)
+class PythonAnalysisRequest:
+    """One explicitly supported analysis operation and its target columns."""
+
+    operation: str
+    columns: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ColumnDescription:
+    """Basic descriptive statistics for one numeric column."""
+
+    column: str
+    count: int
+    mean: float
+    std: float
+    min: float
+    median: float
+    max: float
+
+
+@dataclass(frozen=True)
+class CorrelationResult:
+    """Pearson correlation calculated from paired non-NULL values."""
+
+    x_column: str
+    y_column: str
+    correlation: float
+    paired_count: int
+
+
+PythonAnalysisPayload: TypeAlias = (
+    tuple[ColumnDescription, ...] | CorrelationResult
+)
+
+
+@dataclass(frozen=True)
+class PythonAnalysisError:
+    """Structured expected error from a controlled analysis operation."""
+
+    code: PythonAnalysisErrorCode
+    message: str
+
+
+@dataclass(frozen=True)
+class PythonAnalysisResult:
+    """Stable result for one controlled Python analysis operation."""
+
+    operation: str
+    status: PythonAnalysisStatus
+    result: PythonAnalysisPayload | None
+    error: PythonAnalysisError | None
+
+
+def run_python_analysis(
+    columns: Sequence[str],
+    rows: Sequence[Sequence[object]],
+    request: PythonAnalysisRequest,
+) -> PythonAnalysisResult:
+    """Run one supported numeric operation without database or code execution."""
+
+    if not isinstance(request, PythonAnalysisRequest):
+        return _error_result(
+            request,
+            "invalid_argument",
+            "request must be a PythonAnalysisRequest instance.",
+        )
+    if not isinstance(request.operation, str) or not request.operation.strip():
+        return _error_result(
+            request.operation,
+            "invalid_argument",
+            "operation must be a non-empty string.",
+        )
+    operation = request.operation
+    if operation not in {"describe", "correlation"}:
+        return _error_result(
+            operation,
+            "unsupported_operation",
+            f"Unsupported Python analysis operation: {operation}",
+        )
+    if (
+        not isinstance(request.columns, tuple)
+        or not request.columns
+        or any(not isinstance(column, str) or not column for column in request.columns)
+        or len(request.columns) != len(set(request.columns))
+    ):
+        return _error_result(
+            operation,
+            "invalid_argument",
+            "request columns must be a non-empty tuple of unique column names.",
+        )
+
+    normalized_table = _normalize_table(columns, rows)
+    if isinstance(normalized_table, PythonAnalysisError):
+        return PythonAnalysisResult(operation, "error", None, normalized_table)
+    column_names, table_rows = normalized_table
+
+    unknown_columns = tuple(
+        column for column in request.columns if column not in column_names
+    )
+    if unknown_columns:
+        return _error_result(
+            operation,
+            "unknown_column",
+            f"Unknown column: {unknown_columns[0]}",
+        )
+
+    if operation == "describe":
+        return _describe(column_names, table_rows, request.columns)
+    if len(request.columns) != 2:
+        return _error_result(
+            operation,
+            "invalid_argument",
+            "correlation requires exactly two distinct columns.",
+        )
+    return _correlation(
+        column_names,
+        table_rows,
+        request.columns[0],
+        request.columns[1],
+    )
+
+
+def _normalize_table(
+    columns: object,
+    rows: object,
+) -> tuple[tuple[str, ...], tuple[tuple[object, ...], ...]] | PythonAnalysisError:
+    if (
+        not isinstance(columns, Sequence)
+        or isinstance(columns, (str, bytes))
+        or not columns
+        or any(not isinstance(column, str) or not column for column in columns)
+        or len(columns) != len(set(columns))
+    ):
+        return PythonAnalysisError(
+            "invalid_argument",
+            "columns must be a non-empty sequence of unique column names.",
+        )
+    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes)):
+        return PythonAnalysisError(
+            "invalid_argument",
+            "rows must be a sequence of row sequences.",
+        )
+
+    column_names = tuple(columns)
+    normalized_rows: list[tuple[object, ...]] = []
+    for row in rows:
+        if (
+            not isinstance(row, Sequence)
+            or isinstance(row, (str, bytes))
+            or len(row) != len(column_names)
+        ):
+            return PythonAnalysisError(
+                "invalid_argument",
+                "every row must contain exactly one value per column.",
+            )
+        normalized_rows.append(tuple(row))
+    return column_names, tuple(normalized_rows)
+
+
+def _describe(
+    column_names: tuple[str, ...],
+    rows: tuple[tuple[object, ...], ...],
+    requested_columns: tuple[str, ...],
+) -> PythonAnalysisResult:
+    descriptions: list[ColumnDescription] = []
+    for column in requested_columns:
+        values_or_error = _numeric_column_values(column_names, rows, column)
+        if isinstance(values_or_error, PythonAnalysisError):
+            return PythonAnalysisResult("describe", "error", None, values_or_error)
+        values = values_or_error
+        if len(values) < 2:
+            return _error_result(
+                "describe",
+                "insufficient_data",
+                f"Column {column} requires at least two non-NULL numeric values.",
+            )
+        descriptions.append(
+            ColumnDescription(
+                column=column,
+                count=len(values),
+                mean=statistics.fmean(values),
+                std=statistics.stdev(values),
+                min=min(values),
+                median=statistics.median(values),
+                max=max(values),
+            )
+        )
+    return PythonAnalysisResult(
+        operation="describe",
+        status="success",
+        result=tuple(descriptions),
+        error=None,
+    )
+
+
+def _correlation(
+    column_names: tuple[str, ...],
+    rows: tuple[tuple[object, ...], ...],
+    x_column: str,
+    y_column: str,
+) -> PythonAnalysisResult:
+    x_index = column_names.index(x_column)
+    y_index = column_names.index(y_column)
+    x_values: list[float] = []
+    y_values: list[float] = []
+
+    for row in rows:
+        x_value = row[x_index]
+        y_value = row[y_index]
+        for column, value in ((x_column, x_value), (y_column, y_value)):
+            if value is not None and not _is_finite_number(value):
+                return _error_result(
+                    "correlation",
+                    "non_numeric_column",
+                    f"Column {column} contains a non-numeric value.",
+                )
+        if x_value is None or y_value is None:
+            continue
+        x_values.append(float(x_value))
+        y_values.append(float(y_value))
+
+    if len(x_values) < 2:
+        return _error_result(
+            "correlation",
+            "insufficient_data",
+            "correlation requires at least two paired non-NULL numeric rows.",
+        )
+    if _has_zero_variance(x_values):
+        return _error_result(
+            "correlation",
+            "zero_variance",
+            f"Column {x_column} has zero variance in the paired rows.",
+        )
+    if _has_zero_variance(y_values):
+        return _error_result(
+            "correlation",
+            "zero_variance",
+            f"Column {y_column} has zero variance in the paired rows.",
+        )
+
+    return PythonAnalysisResult(
+        operation="correlation",
+        status="success",
+        result=CorrelationResult(
+            x_column=x_column,
+            y_column=y_column,
+            correlation=statistics.correlation(x_values, y_values),
+            paired_count=len(x_values),
+        ),
+        error=None,
+    )
+
+
+def _numeric_column_values(
+    column_names: tuple[str, ...],
+    rows: tuple[tuple[object, ...], ...],
+    column: str,
+) -> tuple[float, ...] | PythonAnalysisError:
+    index = column_names.index(column)
+    values: list[float] = []
+    for row in rows:
+        value = row[index]
+        if value is None:
+            continue
+        if not _is_finite_number(value):
+            return PythonAnalysisError(
+                "non_numeric_column",
+                f"Column {column} contains a non-numeric value.",
+            )
+        values.append(float(value))
+    return tuple(values)
+
+
+def _is_finite_number(value: object) -> bool:
+    return (
+        isinstance(value, (int, float, Decimal))
+        and not isinstance(value, bool)
+        and math.isfinite(float(value))
+    )
+
+
+def _has_zero_variance(values: Sequence[float]) -> bool:
+    return all(value == values[0] for value in values[1:])
+
+
+def _error_result(
+    operation: object,
+    code: PythonAnalysisErrorCode,
+    message: str,
+) -> PythonAnalysisResult:
+    if isinstance(operation, PythonAnalysisRequest):
+        operation_name = (
+            operation.operation
+            if isinstance(operation.operation, str)
+            else repr(operation.operation)
+        )
+    else:
+        operation_name = operation if isinstance(operation, str) else repr(operation)
+    return PythonAnalysisResult(
+        operation=operation_name,
+        status="error",
+        result=None,
+        error=PythonAnalysisError(code=code, message=message),
+    )
