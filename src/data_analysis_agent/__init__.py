@@ -17,6 +17,12 @@ from data_analysis_agent.metric_catalog import (
     BusinessSemanticRule,
     format_business_semantics_context,
 )
+from data_analysis_agent.multi_tool_service import (
+    ANALYSIS_MAX_ROWS,
+    MultiToolQuestionError,
+    MultiToolQuestionResult,
+    answer_question_with_tools,
+)
 from data_analysis_agent.python_analysis import (
     ColumnDescription,
     CorrelationResult,
@@ -61,6 +67,7 @@ from data_analysis_agent.tool_router import (
 
 __all__ = [
     "BUSINESS_SEMANTICS_V1",
+    "ANALYSIS_MAX_ROWS",
     "BusinessSemanticRule",
     "ColumnSchema",
     "ColumnDescription",
@@ -72,6 +79,8 @@ __all__ = [
     "DeepSeekTextToSQLModel",
     "GOLD_QUESTIONS",
     "GoldQuestion",
+    "MultiToolQuestionError",
+    "MultiToolQuestionResult",
     "QuestionAnswerResult",
     "PythonAnalysisPlan",
     "PythonAnalysisPlanError",
@@ -88,6 +97,7 @@ __all__ = [
     "ToolRouteDecision",
     "ToolRoutingError",
     "answer_question",
+    "answer_question_with_tools",
     "build_python_analysis_plan_prompt",
     "build_text_to_sql_prompt",
     "build_sql_repair_prompt",
