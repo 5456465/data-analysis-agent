@@ -17,7 +17,7 @@ from data_analysis_agent.schema import DatabaseSchema
 from data_analysis_agent.sql_generator import TextToSQLModel, format_schema_context
 
 
-PythonPlanOperation = Literal["describe", "correlation"]
+PythonPlanOperation = Literal["describe", "correlation", "calculate_growth"]
 PythonAnalysisPlanStatus = Literal["success", "error"]
 PythonAnalysisPlanErrorCode = Literal[
     "invalid_argument",
@@ -27,7 +27,9 @@ PythonAnalysisPlanErrorCode = Literal[
     "invalid_analysis_plan",
 ]
 
-_SUPPORTED_OPERATIONS = frozenset({"describe", "correlation"})
+_SUPPORTED_OPERATIONS = frozenset(
+    {"describe", "correlation", "calculate_growth"}
+)
 _DESCRIBE_FUNCTIONS = frozenset(
     {
         "avg",
@@ -49,7 +51,41 @@ _DESCRIBE_FUNCTIONS = frozenset(
 _CORRELATION_FUNCTIONS = frozenset(
     {"corr", "correlation", "covar_pop", "covar_samp", "covariance"}
 )
+_GROWTH_FUNCTIONS = frozenset({"lag", "lead"})
+_GROWTH_DERIVED_IDENTIFIERS = frozenset(
+    {
+        "absolute_change",
+        "growth_rate",
+        "growth",
+        "growth_percentage",
+        "change",
+        "decline",
+        "mom",
+        "mom_change",
+        "mom_growth",
+        "month_over_month_change",
+        "month_over_month_growth",
+        "percentage_change",
+        "percentage_growth",
+        "percent_change",
+        "percent_growth",
+        "period_over_period_change",
+        "period_over_period_growth",
+        "previous_value",
+    }
+)
 _FUNCTION_CALL_PATTERN = re.compile(r"\b([a-z_][a-z0-9_]*)\s*\(", re.IGNORECASE)
+_IDENTIFIER_PATTERN = re.compile(r"\b([a-z_][a-z0-9_]*)\b", re.IGNORECASE)
+_ORDER_BY_PATTERN = re.compile(r"\border\s+by\b", re.IGNORECASE)
+_SELECT_PROJECTION_PATTERN = re.compile(
+    r"\bselect\b(.*?)\bfrom\b",
+    re.IGNORECASE | re.DOTALL,
+)
+_PREVIOUS_VALUE_PATTERN = re.compile(
+    r"\b(?:prev|previous)(?:_value)?\b|\b(?:prev|previous)\s*\.",
+    re.IGNORECASE,
+)
+_ARITHMETIC_PATTERN = re.compile(r"[+*/-]")
 _SQL_NON_CODE_PATTERN = re.compile(
     r"'(?:''|[^'])*'|--[^\n]*(?:\n|$)|/\*.*?\*/",
     re.DOTALL,
@@ -90,17 +126,39 @@ def build_python_analysis_plan_prompt(
     if python_operation not in _SUPPORTED_OPERATIONS:
         raise ValueError(f"Unsupported Python operation: {python_operation!r}")
 
-    operation_rules = (
-        "- Return exactly two numeric series for Pearson correlation.\n"
-        "- python_columns must contain exactly two distinct SQL output column names.\n"
-        "- SQL must not call CORR, covariance, regression, or another function "
-        "that calculates the final relationship."
-        if python_operation == "correlation"
-        else "- Return raw numeric values for one or more columns.\n"
-        "- python_columns must contain at least one distinct SQL output column name.\n"
-        "- SQL must not call AVG, STDDEV, MEDIAN, MIN, MAX, quantile, variance, "
-        "or another function that calculates the requested descriptive statistics."
-    )
+    if python_operation == "correlation":
+        operation_rules = (
+            "- Return exactly two numeric series for Pearson correlation.\n"
+            "- python_columns must contain exactly two distinct SQL output column names.\n"
+            "- SQL must not call CORR, covariance, regression, or another function "
+            "that calculates the final relationship."
+        )
+    elif python_operation == "calculate_growth":
+        operation_rules = (
+            "- SQL must return one chronologically ordered row per requested period.\n"
+            "- SQL prepares a period-value series at the requested time grain.\n"
+            "- python_columns must contain exactly two distinct SQL output column names.\n"
+            "- The first Python column is the period column.\n"
+            "- The second Python column is the aggregated numeric metric.\n"
+            "- SQL may aggregate the business metric using SUM, AVG, COUNT, or "
+            "another appropriate aggregate and GROUP BY the period.\n"
+            "- SQL must preserve the business metric's actual fact population.\n"
+            "- Missing fact rows must not automatically become numeric zero.\n"
+            "- Do not manufacture zero-valued periods with LEFT JOIN plus COALESCE "
+            "unless the business semantics explicitly require zero filling.\n"
+            "- SQL must not use LAG, LEAD, current-versus-previous arithmetic, or "
+            "calculate period-over-period, month-over-month, percentage change, "
+            "absolute_change, previous_value, or growth_rate.\n"
+            "- Python calculate_growth owns previous_value, absolute_change, and "
+            "growth_rate."
+        )
+    else:
+        operation_rules = (
+            "- Return raw numeric values for one or more columns.\n"
+            "- python_columns must contain at least one distinct SQL output column name.\n"
+            "- SQL must not call AVG, STDDEV, MEDIAN, MIN, MAX, quantile, variance, "
+            "or another function that calculates the requested descriptive statistics."
+        )
 
     return f"""You prepare one DuckDB SQL result for a controlled Python analysis operation.
 
@@ -293,8 +351,10 @@ def _validate_analysis_contract(
         return "python_columns must contain at least one column."
     if len(python_columns) != len(set(python_columns)):
         return "python_columns must contain distinct column names."
-    if python_operation == "correlation" and len(python_columns) != 2:
-        return "correlation requires exactly two python_columns."
+    if python_operation in {"correlation", "calculate_growth"} and len(
+        python_columns
+    ) != 2:
+        return f"{python_operation} requires exactly two python_columns."
 
     function_names = _sql_function_names(sql)
     if python_operation == "correlation":
@@ -302,14 +362,30 @@ def _validate_analysis_contract(
         forbidden.update(
             name for name in function_names if name.startswith("regr_")
         )
-    else:
+    elif python_operation == "describe":
         forbidden = function_names & _DESCRIBE_FUNCTIONS
+    else:
+        forbidden = function_names & _GROWTH_FUNCTIONS
+        growth_identifiers = _sql_identifiers(sql) & _GROWTH_DERIVED_IDENTIFIERS
+        forbidden.update(growth_identifiers)
+
+        if _contains_previous_value_arithmetic(sql):
+            return (
+                "calculate_growth SQL must prepare values and must not perform "
+                "current-versus-previous arithmetic."
+            )
+
+        if not _has_order_by(sql):
+            return (
+                "calculate_growth SQL must return the period-value series in "
+                "chronological order with ORDER BY."
+            )
 
     if forbidden:
         functions = ", ".join(sorted(forbidden))
         return (
             "SQL must prepare raw values and must not perform the final "
-            f"{python_operation} operation; forbidden function(s): {functions}."
+            f"{python_operation} operation; forbidden SQL term(s): {functions}."
         )
     return None
 
@@ -320,6 +396,29 @@ def _sql_function_names(sql: str) -> set[str]:
         match.group(1).lower()
         for match in _FUNCTION_CALL_PATTERN.finditer(sql_code)
     }
+
+
+def _sql_identifiers(sql: str) -> set[str]:
+    sql_code = _SQL_NON_CODE_PATTERN.sub(" ", sql)
+    return {
+        match.group(1).lower()
+        for match in _IDENTIFIER_PATTERN.finditer(sql_code)
+    }
+
+
+def _has_order_by(sql: str) -> bool:
+    sql_code = _SQL_NON_CODE_PATTERN.sub(" ", sql)
+    return _ORDER_BY_PATTERN.search(sql_code) is not None
+
+
+def _contains_previous_value_arithmetic(sql: str) -> bool:
+    sql_code = _SQL_NON_CODE_PATTERN.sub(" ", sql)
+    for projection in _SELECT_PROJECTION_PATTERN.findall(sql_code):
+        if _PREVIOUS_VALUE_PATTERN.search(
+            projection
+        ) and _ARITHMETIC_PATTERN.search(projection):
+            return True
+    return False
 
 
 def _parse_model_output(output: object) -> dict[str, object]:

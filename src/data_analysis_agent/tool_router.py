@@ -11,7 +11,7 @@ from data_analysis_agent.sql_generator import TextToSQLModel
 
 
 ToolRoute = Literal["sql_only", "sql_then_python"]
-PythonRoutingOperation = Literal["describe", "correlation"]
+PythonRoutingOperation = Literal["describe", "correlation", "calculate_growth"]
 ToolRoutingStatus = Literal["success", "error"]
 ToolRoutingErrorCode = Literal[
     "invalid_argument",
@@ -56,6 +56,7 @@ Available paths:
 The only supported Python operations are:
 - describe: descriptive statistics for one or more numeric result columns.
 - correlation: Pearson correlation between exactly two numeric result columns.
+- calculate_growth: period-over-period change and growth over an ordered metric series.
 
 Routing rules:
 - Prefer the smallest reliable tool chain.
@@ -63,6 +64,8 @@ Routing rules:
 - Do not route to Python merely because Python supports the operation.
 - Descriptive statistics limited to count, mean, standard deviation, median, minimum, and maximum are SQL-native final calculations and should use sql_only.
 - Pearson correlation that DuckDB can directly calculate with CORR() is a SQL-native final calculation and should use sql_only.
+- A metric grouped by month or shown as a time trend is SQL-native and should use sql_only when the question does not ask for comparisons between consecutive periods.
+- Explicit month-over-month or period-over-period growth, decline, or change requires sql_then_python with calculate_growth.
 - Use sql_then_python only when a supported task genuinely requires post-processing of SQL-produced tabular data that SQL should not naturally own.
 - Avoid unnecessary transfer of large raw datasets from DuckDB into Python.
 - SQL_THEN_PYTHON remains available for supported post-processing, but the current tool set may make some questions SQL_ONLY.
@@ -80,11 +83,18 @@ Routing examples:
   Decision: sql_only with python_operation null.
 - Question: What is the Pearson correlation between item price and freight value?
   Decision: sql_only with python_operation null.
+- Question: What was total item transaction value by month?
+  Decision: sql_only with python_operation null.
+- Question: How did total item transaction value change month over month?
+  Decision: sql_then_python with python_operation calculate_growth.
+- Question: Which month had the largest month-over-month decline in total item transaction value?
+  Decision: sql_then_python with python_operation calculate_growth.
 
 Return exactly one JSON object in one of these forms:
 {{"status":"success","route":"sql_only","python_operation":null,"reason":"Brief reason."}}
 {{"status":"success","route":"sql_then_python","python_operation":"describe","reason":"Brief reason."}}
 {{"status":"success","route":"sql_then_python","python_operation":"correlation","reason":"Brief reason."}}
+{{"status":"success","route":"sql_then_python","python_operation":"calculate_growth","reason":"Brief reason."}}
 {{"status":"error","error":"Reason no supported route can fulfill the request."}}
 
 User question:
@@ -176,7 +186,8 @@ def route_question(
             "invalid_model_output",
             "python_operation must be a string or null.",
         )
-    if operation is not None and operation not in {"describe", "correlation"}:
+    supported_operations = {"describe", "correlation", "calculate_growth"}
+    if operation is not None and operation not in supported_operations:
         return _error_decision(
             question,
             "unsupported_route",
@@ -199,11 +210,11 @@ def route_question(
             error=None,
         )
 
-    if operation not in {"describe", "correlation"}:
+    if operation not in supported_operations:
         return _error_decision(
             question,
             "invalid_model_output",
-            "sql_then_python requires describe or correlation.",
+            "sql_then_python requires describe, correlation, or calculate_growth.",
         )
     return ToolRouteDecision(
         question=question,

@@ -25,6 +25,8 @@ from data_analysis_agent.tool_router import (
             "median, min, and max for item price."
         ),
         "What is the Pearson correlation between item price and freight value?",
+        "What was total item transaction value by month?",
+        "Show average payment value by month.",
         "List all customer states ranked by unique customer count.",
         "What percentage of orders contain multiple items?",
     ],
@@ -66,6 +68,36 @@ def test_structured_sql_then_python_output_contract_remains_supported() -> None:
     assert result.status == "success"
     assert result.route == "sql_then_python"
     assert result.python_operation == "describe"
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How did total item transaction value change month over month?",
+        (
+            "Which month had the largest month-over-month decline in total "
+            "item transaction value?"
+        ),
+    ],
+)
+def test_period_over_period_questions_route_to_calculate_growth(
+    question: str,
+) -> None:
+    result = route_question(
+        question,
+        lambda prompt: {
+            "status": "success",
+            "route": "sql_then_python",
+            "python_operation": "calculate_growth",
+            "reason": "The final result requires consecutive-period analysis.",
+        },
+    )
+
+    assert result.status == "success"
+    assert result.route == "sql_then_python"
+    assert result.python_operation == "calculate_growth"
+
+
 def test_prompt_contains_question_and_explicit_tool_boundaries() -> None:
     question = "Describe order payment values."
 
@@ -80,6 +112,9 @@ def test_prompt_contains_question_and_explicit_tool_boundaries() -> None:
     assert "should use sql_only" in prompt
     assert "describe: descriptive statistics" in prompt
     assert "correlation: Pearson correlation" in prompt
+    assert "calculate_growth: period-over-period change" in prompt
+    assert "grouped by month or shown as a time trend" in prompt
+    assert "Explicit month-over-month or period-over-period" in prompt
     assert "Python never accesses the database" in prompt
     assert "Regression, clustering, forecasting" in prompt
     assert "Do not generate SQL" in prompt
@@ -95,8 +130,16 @@ def test_prompt_contains_minimal_policy_examples() -> None:
         "What is the Pearson correlation between item price and freight value?"
         in prompt
     )
-    assert prompt.count("Decision: sql_only with python_operation null.") == 4
-    assert "Decision: sql_then_python" not in prompt
+    assert "What was total item transaction value by month?" in prompt
+    assert "How did total item transaction value change month over month?" in prompt
+    assert "largest month-over-month decline" in prompt
+    assert prompt.count("Decision: sql_only with python_operation null.") == 5
+    assert (
+        prompt.count(
+            "Decision: sql_then_python with python_operation calculate_growth."
+        )
+        == 2
+    )
 
 
 def test_malformed_json_returns_invalid_model_output() -> None:

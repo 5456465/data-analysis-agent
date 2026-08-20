@@ -372,27 +372,40 @@ def _calculate_growth(
 
     points: list[GrowthPoint] = []
     previous_value: float | None = None
-    for _, period, value in normalized_rows:
-        if previous_value is None:
+    previous_sort_key: tuple[int, ...] | None = None
+    for sort_key, period, value in normalized_rows:
+        has_comparable_previous = previous_sort_key is not None
+        if (
+            has_comparable_previous
+            and period_kind == "year_month"
+            and not _is_next_calendar_month(previous_sort_key, sort_key)
+        ):
+            has_comparable_previous = False
+
+        if not has_comparable_previous:
+            point_previous_value = None
             absolute_change = None
             growth_rate = None
         else:
-            absolute_change = value - previous_value
+            point_previous_value = previous_value
+            assert point_previous_value is not None
+            absolute_change = value - point_previous_value
             growth_rate = (
                 None
-                if previous_value == 0
-                else absolute_change / previous_value
+                if point_previous_value == 0
+                else absolute_change / point_previous_value
             )
         points.append(
             GrowthPoint(
                 period=period,
                 value=value,
-                previous_value=previous_value,
+                previous_value=point_previous_value,
                 absolute_change=absolute_change,
                 growth_rate=growth_rate,
             )
         )
         previous_value = value
+        previous_sort_key = sort_key
 
     return PythonAnalysisResult(
         operation="calculate_growth",
@@ -438,6 +451,19 @@ def _normalize_period(
             return None
         return "year_month", (year, month), value
     return None
+
+
+def _is_next_calendar_month(
+    previous: tuple[int, ...],
+    current: tuple[int, ...],
+) -> bool:
+    previous_year, previous_month = previous
+    expected = (
+        (previous_year + 1, 1)
+        if previous_month == 12
+        else (previous_year, previous_month + 1)
+    )
+    return current == expected
 
 
 def _numeric_column_values(

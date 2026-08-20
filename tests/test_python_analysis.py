@@ -259,6 +259,68 @@ def test_calculate_growth_returns_complete_ordered_growth_series() -> None:
     )
 
 
+def test_calculate_growth_resets_comparison_after_calendar_month_gap() -> None:
+    result = run_python_analysis(
+        columns=("month", "value"),
+        rows=(
+            ("2016-09", 100),
+            ("2016-10", 120),
+            ("2016-12", 90),
+            ("2017-01", 100),
+        ),
+        request=PythonAnalysisRequest("calculate_growth", ("month", "value")),
+    )
+
+    assert result.status == "success"
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points == (
+        GrowthPoint("2016-09", 100.0, None, None, None),
+        GrowthPoint("2016-10", 120.0, 100.0, 20.0, pytest.approx(0.2)),
+        GrowthPoint("2016-12", 90.0, None, None, None),
+        GrowthPoint(
+            "2017-01",
+            100.0,
+            90.0,
+            10.0,
+            pytest.approx(10 / 90),
+        ),
+    )
+
+
+def test_calculate_growth_treats_year_boundary_as_consecutive_months() -> None:
+    result = run_python_analysis(
+        columns=("month", "value"),
+        rows=(("2025-12", 80), ("2026-01", 100)),
+        request=PythonAnalysisRequest("calculate_growth", ("month", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points[1] == GrowthPoint(
+        "2026-01",
+        100.0,
+        80.0,
+        20.0,
+        pytest.approx(0.25),
+    )
+
+
+def test_calculate_growth_sorts_year_month_rows_before_gap_check() -> None:
+    result = run_python_analysis(
+        columns=("month", "value"),
+        rows=(("2018-03", 90), ("2018-01", 100), ("2018-02", 120)),
+        request=PythonAnalysisRequest("calculate_growth", ("month", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert tuple(point.period for point in result.result.points) == (
+        "2018-01",
+        "2018-02",
+        "2018-03",
+    )
+    assert result.result.points[2].previous_value == 120.0
+    assert result.result.points[2].growth_rate == pytest.approx(-0.25)
+
+
 def test_calculate_growth_sorts_unordered_date_rows() -> None:
     result = run_python_analysis(
         columns=("period", "value"),
@@ -275,6 +337,23 @@ def test_calculate_growth_sorts_unordered_date_rows() -> None:
         date(2018, 1, 1),
         date(2018, 2, 1),
         date(2018, 3, 1),
+    )
+
+
+def test_calculate_growth_does_not_infer_frequency_for_date_periods() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=((date(2018, 1, 1), 100), (date(2018, 3, 1), 120)),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points[1] == GrowthPoint(
+        date(2018, 3, 1),
+        120.0,
+        100.0,
+        20.0,
+        pytest.approx(0.2),
     )
 
 
