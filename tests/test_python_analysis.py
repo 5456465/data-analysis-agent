@@ -340,16 +340,62 @@ def test_calculate_growth_sorts_unordered_date_rows() -> None:
     )
 
 
-def test_calculate_growth_does_not_infer_frequency_for_date_periods() -> None:
+def test_calculate_growth_recognizes_contiguous_date_month_buckets() -> None:
     result = run_python_analysis(
         columns=("period", "value"),
-        rows=((date(2018, 1, 1), 100), (date(2018, 3, 1), 120)),
+        rows=((date(2026, 1, 1), 100), (date(2026, 2, 1), 120)),
         request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
     )
 
     assert isinstance(result.result, GrowthResult)
     assert result.result.points[1] == GrowthPoint(
-        date(2018, 3, 1),
+        date(2026, 2, 1),
+        120.0,
+        100.0,
+        20.0,
+        pytest.approx(0.2),
+    )
+
+
+def test_calculate_growth_resets_after_date_month_bucket_gap() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=((date(2026, 1, 1), 100), (date(2026, 3, 1), 120)),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points[1] == GrowthPoint(
+        date(2026, 3, 1),
+        120.0,
+        None,
+        None,
+        None,
+    )
+
+
+def test_calculate_growth_treats_date_year_boundary_as_consecutive_months() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=((date(2025, 12, 1), 80), (date(2026, 1, 1), 100)),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points[1].previous_value == 80.0
+    assert result.result.points[1].growth_rate == pytest.approx(0.25)
+
+
+def test_calculate_growth_does_not_infer_frequency_for_date_periods() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=((date(2026, 1, 5), 100), (date(2026, 1, 12), 120)),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points[1] == GrowthPoint(
+        date(2026, 1, 12),
         120.0,
         100.0,
         20.0,
@@ -370,6 +416,65 @@ def test_calculate_growth_supports_datetime_periods() -> None:
     assert result.status == "success"
     assert isinstance(result.result, GrowthResult)
     assert result.result.points[1].growth_rate == pytest.approx(0.1)
+
+
+def test_calculate_growth_resets_after_datetime_month_bucket_gap() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(
+            (datetime(2026, 1, 1), 100),
+            (datetime(2026, 3, 1), 120),
+        ),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.points[1].previous_value is None
+    assert result.result.points[1].absolute_change is None
+    assert result.result.points[1].growth_rate is None
+
+
+def test_calculate_growth_ignores_null_metric_observation_without_zero_fill() -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=(
+            ("2026-01", 100),
+            ("2026-02", None),
+            ("2026-03", 120),
+            ("2026-04", 150),
+        ),
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert result.status == "success"
+    assert isinstance(result.result, GrowthResult)
+    assert result.result.period_count == 3
+    assert result.result.points == (
+        GrowthPoint("2026-01", 100.0, None, None, None),
+        GrowthPoint("2026-03", 120.0, None, None, None),
+        GrowthPoint("2026-04", 150.0, 120.0, 30.0, pytest.approx(0.25)),
+    )
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        (("2026-01", None), ("2026-02", None)),
+        (("2026-01", None), ("2026-02", 100)),
+    ],
+)
+def test_calculate_growth_requires_two_numeric_observations_after_null_filter(
+    rows,
+) -> None:
+    result = run_python_analysis(
+        columns=("period", "value"),
+        rows=rows,
+        request=PythonAnalysisRequest("calculate_growth", ("period", "value")),
+    )
+
+    assert result.status == "error"
+    assert result.error is not None
+    assert result.error.code == "insufficient_data"
 
 
 def test_calculate_growth_keeps_absolute_change_when_previous_value_is_zero() -> None:

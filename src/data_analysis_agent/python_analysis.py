@@ -334,6 +334,17 @@ def _calculate_growth(
                 f"Column {period_column} contains an unsupported or NULL period value.",
             )
         current_kind, sort_key, output_period = normalized_period
+
+        value = row[value_index]
+        if value is None:
+            continue
+        if not _is_finite_number(value):
+            return _error_result(
+                "calculate_growth",
+                "non_numeric_column",
+                f"Column {value_column} contains a non-numeric value.",
+            )
+
         if period_kind is None:
             period_kind = current_kind
         elif current_kind != period_kind:
@@ -342,21 +353,13 @@ def _calculate_growth(
                 "invalid_period_column",
                 f"Column {period_column} mixes incompatible period representations.",
             )
-
-        value = row[value_index]
-        if not _is_finite_number(value):
-            return _error_result(
-                "calculate_growth",
-                "non_numeric_column",
-                f"Column {value_column} contains a non-numeric value.",
-            )
         normalized_rows.append((sort_key, output_period, float(value)))
 
     if len(normalized_rows) < 2:
         return _error_result(
             "calculate_growth",
             "insufficient_data",
-            "calculate_growth requires at least two valid period rows.",
+            "calculate_growth requires at least two valid numeric observations.",
         )
 
     normalized_rows.sort(key=lambda item: item[0])
@@ -371,13 +374,20 @@ def _calculate_growth(
         )
 
     points: list[GrowthPoint] = []
+    uses_calendar_month_continuity = period_kind == "year_month" or (
+        period_kind in {"date", "datetime", "aware_datetime"}
+        and all(
+            isinstance(period, (date, datetime)) and period.day == 1
+            for _, period, _ in normalized_rows
+        )
+    )
     previous_value: float | None = None
     previous_sort_key: tuple[int, ...] | None = None
     for sort_key, period, value in normalized_rows:
         has_comparable_previous = previous_sort_key is not None
         if (
             has_comparable_previous
-            and period_kind == "year_month"
+            and uses_calendar_month_continuity
             and not _is_next_calendar_month(previous_sort_key, sort_key)
         ):
             has_comparable_previous = False
@@ -457,13 +467,13 @@ def _is_next_calendar_month(
     previous: tuple[int, ...],
     current: tuple[int, ...],
 ) -> bool:
-    previous_year, previous_month = previous
+    previous_year, previous_month = previous[:2]
     expected = (
         (previous_year + 1, 1)
         if previous_month == 12
         else (previous_year, previous_month + 1)
     )
-    return current == expected
+    return current[:2] == expected
 
 
 def _numeric_column_values(

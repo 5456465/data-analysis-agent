@@ -517,5 +517,10 @@ def test_calculate_growth_prompt_defines_sql_python_boundary() -> None:
     assert "Missing fact rows must not automatically become numeric zero" in prompt
     assert "Do not manufacture zero-valued periods with LEFT JOIN plus COALESCE" in prompt
     assert "business semantics explicitly require zero filling" in prompt
+    assert "numeric metric column should represent valid metric observations" in prompt
+    assert "A NULL metric observation means missing, not numeric zero" in prompt
+    assert "prefer filtering that missing metric observation" in prompt
+    assert "No specific JOIN type is required" in prompt
+    assert "WHERE, HAVING, or fact-table-driven aggregation" in prompt
     assert "must not use LAG, LEAD" in prompt
     assert "Python calculate_growth owns previous_value" in prompt
