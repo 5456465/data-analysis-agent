@@ -20,6 +20,11 @@ from data_analysis_agent.multi_tool_service import (
     MultiToolQuestionResult,
 )
 from data_analysis_agent.natural_language_answer import NaturalLanguageAnswer
+from data_analysis_agent.observability import (
+    LLMCallObservation,
+    RequestObservability,
+    StageObservation,
+)
 from data_analysis_agent.python_analysis import (
     GrowthPoint,
     GrowthResult,
@@ -66,6 +71,7 @@ def _final_result(
     repaired: bool = False,
     answer: str = "Result: 99441",
     natural_language_answer: NaturalLanguageAnswer | None = None,
+    observability: RequestObservability | None = None,
 ) -> FinalAnswerResult:
     sql_result = _sql_result()
     sql_answer = (
@@ -142,6 +148,7 @@ def _final_result(
         validated_result=ValidatedQuestionResult(result, validation),
         synthesis=AnswerSynthesis("success", answer, warnings),
         natural_language_answer=natural_language_answer,
+        observability=observability,
     )
 
 
@@ -379,9 +386,11 @@ def test_chinese_answer_keeps_english_machine_contract(
         "analysis_tool",
         "warnings",
         "evidence",
+        "observability",
     }
     assert body["answer"] == "时间点数量：1"
     assert body["natural_language_answer"] is None
+    assert body["observability"] is None
     assert body["route"] == "sql_then_python"
     assert body["validation"] == "valid"
     assert body["analysis_tool"] == "calculate_growth"
@@ -514,6 +523,63 @@ def test_narrative_fallback_does_not_cause_http_500(
     assert response.status_code == 200
     assert response.json()["answer"] == "Result: 99441"
     assert response.json()["natural_language_answer"] == "Result: 99441"
+
+
+def test_observability_is_structured_without_changing_existing_fields(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observability = RequestObservability(
+        request_id="7c5b8e9d-test-request",
+        total_latency_ms=1234.5,
+        route="sql_then_python",
+        final_status="success",
+        validation_status="valid",
+        stages=(
+            StageObservation("routing", 300.1),
+            StageObservation("planning", 120.2),
+        ),
+        llm_calls=(
+            LLMCallObservation(
+                stage="routing",
+                model="deepseek-v4-flash",
+                latency_ms=280.2,
+                prompt_tokens=500,
+                completion_tokens=50,
+                total_tokens=550,
+                status="success",
+            ),
+        ),
+        total_prompt_tokens=500,
+        total_completion_tokens=50,
+        total_tokens=550,
+    )
+    _configure_result(
+        monkeypatch,
+        _final_result(route="sql_then_python", observability=observability),
+    )
+
+    body = client.post("/analyze", json={"question": QUESTION}).json()
+    metrics = body["observability"]
+
+    assert body["route"] == "sql_then_python"
+    assert body["validation"] == "valid"
+    assert body["analysis_tool"] == "calculate_growth"
+    assert metrics["request_id"] == "7c5b8e9d-test-request"
+    assert metrics["total_latency_ms"] == 1234.5
+    assert metrics["stages"][0] == {
+        "stage": "routing",
+        "latency_ms": 300.1,
+    }
+    assert metrics["llm_calls"][0]["stage"] == "routing"
+    assert metrics["llm_calls"][0]["prompt_tokens"] == 500
+    assert metrics["total_prompt_tokens"] == 500
+    assert metrics["total_completion_tokens"] == 50
+    assert metrics["total_tokens"] == 550
+    assert "prompt" not in metrics
+    assert "response" not in metrics
+    assert "raw_response" not in metrics
+    assert "api_key" not in repr(metrics).lower()
 
 
 def test_response_excludes_secrets_prompts_and_held_out_metadata(

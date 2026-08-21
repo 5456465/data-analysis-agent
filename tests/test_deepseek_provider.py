@@ -7,20 +7,36 @@ from types import SimpleNamespace
 import pytest
 
 import data_analysis_agent.deepseek_provider as provider_module
+from data_analysis_agent.answer_synthesis import AnswerSynthesis
 from data_analysis_agent.deepseek_provider import (
     DEEPSEEK_BASE_URL,
     DEEPSEEK_MODEL,
     DeepSeekNaturalLanguageModel,
     DeepSeekTextToSQLModel,
 )
+from data_analysis_agent.observability import (
+    finalize_observability,
+    observe_stage,
+    start_observability_request,
+)
+from data_analysis_agent.natural_language_answer import (
+    generate_natural_language_answer,
+)
 from data_analysis_agent.schema import DatabaseSchema
 from data_analysis_agent.sql_generator import generate_sql
 
 
 class FakeCompletions:
-    def __init__(self, *, content: str | None = None, error: Exception | None = None):
+    def __init__(
+        self,
+        *,
+        content: str | None = None,
+        error: Exception | None = None,
+        usage: object | None = None,
+    ):
         self.content = content
         self.error = error
+        self.usage = usage
         self.calls: list[dict[str, object]] = []
 
     def create(self, **kwargs):
@@ -28,7 +44,8 @@ class FakeCompletions:
         if self.error is not None:
             raise self.error
         return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=self.content))]
+            choices=[SimpleNamespace(message=SimpleNamespace(content=self.content))],
+            usage=self.usage,
         )
 
 
@@ -160,3 +177,88 @@ def test_natural_language_provider_rejects_empty_content(
 
     with pytest.raises(ValueError, match="empty response content"):
         model("Summarize the validated result.")
+
+
+def test_provider_records_real_usage_from_response() -> None:
+    completions = FakeCompletions(
+        content='{"status":"success","sql":"SELECT 1"}',
+        usage=SimpleNamespace(
+            prompt_tokens=101,
+            completion_tokens=12,
+            total_tokens=113,
+        ),
+    )
+    model = DeepSeekTextToSQLModel(client=FakeClient(completions))
+
+    with start_observability_request() as collector:
+        with observe_stage("sql_generation"):
+            model("Generate SQL.")
+        observation = finalize_observability(
+            collector,
+            route="sql_only",
+            final_status="success",
+            validation_status="valid",
+        )
+
+    call = observation.llm_calls[0]
+    assert call.stage == "sql_generation"
+    assert call.model == DEEPSEEK_MODEL
+    assert call.prompt_tokens == 101
+    assert call.completion_tokens == 12
+    assert call.total_tokens == 113
+    assert call.status == "success"
+    assert call.latency_ms >= 0
+
+
+def test_provider_does_not_estimate_tokens_when_usage_is_unavailable() -> None:
+    model = DeepSeekNaturalLanguageModel(
+        client=FakeClient(FakeCompletions(content="Natural answer.", usage=None))
+    )
+
+    with start_observability_request() as collector:
+        with observe_stage("natural_language_synthesis"):
+            model("Summarize.")
+        observation = finalize_observability(
+            collector,
+            route="sql_only",
+            final_status="success",
+            validation_status="valid",
+        )
+
+    call = observation.llm_calls[0]
+    assert call.prompt_tokens is None
+    assert call.completion_tokens is None
+    assert call.total_tokens is None
+    assert observation.total_prompt_tokens is None
+    assert observation.total_completion_tokens is None
+    assert observation.total_tokens is None
+
+
+def test_narrative_provider_error_is_recorded_while_fallback_succeeds() -> None:
+    model = DeepSeekNaturalLanguageModel(
+        client=FakeClient(
+            FakeCompletions(error=RuntimeError("provider unavailable"))
+        )
+    )
+
+    with start_observability_request() as collector:
+        result = generate_natural_language_answer(
+            "How many orders are there?",
+            "valid",
+            AnswerSynthesis("success", "Result: 1", ()),
+            model,
+        )
+        observation = finalize_observability(
+            collector,
+            route="sql_only",
+            final_status="success",
+            validation_status="valid",
+        )
+
+    call = observation.llm_calls[0]
+    assert result.status == "fallback"
+    assert result.answer == "Result: 1"
+    assert call.status == "error"
+    assert call.prompt_tokens is None
+    assert call.completion_tokens is None
+    assert call.total_tokens is None

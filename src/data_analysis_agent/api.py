@@ -68,6 +68,40 @@ class AnalyzeEvidence(BaseModel):
     trace: tuple[TraceStepResponse, ...]
 
 
+class StageObservationResponse(BaseModel):
+    """Machine-readable latency for one executed stage."""
+
+    stage: str
+    latency_ms: float
+
+
+class LLMCallObservationResponse(BaseModel):
+    """Machine-readable provider usage without request or response content."""
+
+    stage: str
+    model: str
+    latency_ms: float
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    total_tokens: int | None
+    status: Literal["success", "error"]
+
+
+class RequestObservabilityResponse(BaseModel):
+    """Request-scoped latency, outcome, and provider-usage metadata."""
+
+    request_id: str
+    total_latency_ms: float
+    route: str | None
+    final_status: str
+    validation_status: str
+    stages: tuple[StageObservationResponse, ...]
+    llm_calls: tuple[LLMCallObservationResponse, ...]
+    total_prompt_tokens: int | None
+    total_completion_tokens: int | None
+    total_tokens: int | None
+
+
 class AnalyzeResponse(BaseModel):
     """Stable machine-oriented response for a completed Agent call."""
 
@@ -79,6 +113,7 @@ class AnalyzeResponse(BaseModel):
     analysis_tool: Literal["describe", "correlation", "calculate_growth"] | None
     warnings: tuple[str, ...]
     evidence: AnalyzeEvidence
+    observability: RequestObservabilityResponse | None = None
 
 
 def create_model() -> TextToSQLModel:
@@ -137,6 +172,7 @@ def _build_analyze_response(final_result: FinalAnswerResult) -> AnalyzeResponse:
     plan = result.analysis_plan
     trace = build_execution_trace(final_result)
     narrative = final_result.natural_language_answer
+    observability = final_result.observability
     return AnalyzeResponse(
         status=final_result.synthesis.status,
         answer=final_result.synthesis.answer,
@@ -165,5 +201,38 @@ def _build_analyze_response(final_result: FinalAnswerResult) -> AnalyzeResponse:
                 )
                 for step in trace.steps
             ),
+        ),
+        observability=(
+            RequestObservabilityResponse(
+                request_id=observability.request_id,
+                total_latency_ms=observability.total_latency_ms,
+                route=observability.route,
+                final_status=observability.final_status,
+                validation_status=observability.validation_status,
+                stages=tuple(
+                    StageObservationResponse(
+                        stage=stage.stage,
+                        latency_ms=stage.latency_ms,
+                    )
+                    for stage in observability.stages
+                ),
+                llm_calls=tuple(
+                    LLMCallObservationResponse(
+                        stage=call.stage,
+                        model=call.model,
+                        latency_ms=call.latency_ms,
+                        prompt_tokens=call.prompt_tokens,
+                        completion_tokens=call.completion_tokens,
+                        total_tokens=call.total_tokens,
+                        status=call.status,
+                    )
+                    for call in observability.llm_calls
+                ),
+                total_prompt_tokens=observability.total_prompt_tokens,
+                total_completion_tokens=observability.total_completion_tokens,
+                total_tokens=observability.total_tokens,
+            )
+            if observability is not None
+            else None
         ),
     )

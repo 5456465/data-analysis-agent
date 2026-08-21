@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from data_analysis_agent.observability import observed_stage
 from data_analysis_agent.python_analysis import (
     ColumnDescription,
     CorrelationResult,
@@ -26,6 +27,7 @@ class AnswerSynthesis:
     warnings: tuple[str, ...]
 
 
+@observed_stage("answer_synthesis")
 def synthesize_answer(
     validated_result: ValidatedQuestionResult,
     locale: Locale = "en",

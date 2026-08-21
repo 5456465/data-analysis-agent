@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from data_analysis_agent.metric_catalog import format_business_semantics_context
+from data_analysis_agent.observability import observed_stage
 from data_analysis_agent.schema import DatabaseSchema
 from data_analysis_agent.sql_generator import TextToSQLModel, format_schema_context
 
@@ -198,6 +199,7 @@ User question:
 """
 
 
+@observed_stage("planning")
 def generate_python_analysis_plan(
     question: str,
     schema: DatabaseSchema,

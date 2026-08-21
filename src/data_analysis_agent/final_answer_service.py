@@ -16,6 +16,11 @@ from data_analysis_agent.natural_language_answer import (
     NaturalLanguageModel,
     generate_natural_language_answer,
 )
+from data_analysis_agent.observability import (
+    RequestObservability,
+    finalize_observability,
+    start_observability_request,
+)
 from data_analysis_agent.schema import DatabaseSchema
 from data_analysis_agent.sql_executor import DEFAULT_MAX_ROWS
 from data_analysis_agent.sql_generator import TextToSQLModel
@@ -32,6 +37,7 @@ class FinalAnswerResult:
     validated_result: ValidatedQuestionResult
     synthesis: AnswerSynthesis
     natural_language_answer: NaturalLanguageAnswer | None = None
+    observability: RequestObservability | None = None
 
 
 def answer_question_for_user(
@@ -47,28 +53,37 @@ def answer_question_for_user(
 ) -> FinalAnswerResult:
     """Execute and validate once, then optionally add one narrative."""
 
-    validated_result = answer_question_with_validation(
-        database_path,
-        question,
-        model,
-        max_rows=max_rows,
-        analysis_max_rows=analysis_max_rows,
-        schema=schema,
-    )
-    synthesis = synthesize_answer(validated_result, locale=locale)
-    natural_language_answer = (
-        generate_natural_language_answer(
+    with start_observability_request() as collector:
+        validated_result = answer_question_with_validation(
+            database_path,
             question,
-            validated_result.validation.status,
-            synthesis,
-            natural_language_model,
-            locale,
+            model,
+            max_rows=max_rows,
+            analysis_max_rows=analysis_max_rows,
+            schema=schema,
         )
-        if natural_language_model is not None
-        else None
-    )
+        synthesis = synthesize_answer(validated_result, locale=locale)
+        natural_language_answer = (
+            generate_natural_language_answer(
+                question,
+                validated_result.validation.status,
+                synthesis,
+                natural_language_model,
+                locale,
+            )
+            if natural_language_model is not None
+            else None
+        )
+        result = validated_result.result
+        observability = finalize_observability(
+            collector,
+            route=result.route_decision.route,
+            final_status=result.status,
+            validation_status=validated_result.validation.status,
+        )
     return FinalAnswerResult(
         validated_result=validated_result,
         synthesis=synthesis,
         natural_language_answer=natural_language_answer,
+        observability=observability,
     )

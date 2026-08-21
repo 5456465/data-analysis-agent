@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Literal
 
 from data_analysis_agent.multi_tool_service import MultiToolQuestionResult
+from data_analysis_agent.observability import observed_stage
 from data_analysis_agent.python_analysis import (
     ColumnDescription,
     CorrelationResult,
@@ -41,6 +42,7 @@ class ResultValidation:
     issues: tuple[ValidationIssue, ...]
 
 
+@observed_stage("validation")
 def validate_multi_tool_result(result: MultiToolQuestionResult) -> ResultValidation:
     """Validate a completed result without executing, repairing, or mutating it."""
 

@@ -11,6 +11,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Literal, TypeAlias
 
+from data_analysis_agent.observability import observed_stage
+
 
 PythonAnalysisStatus = Literal["success", "error"]
 PythonAnalysisErrorCode = Literal[
@@ -100,6 +102,7 @@ class PythonAnalysisResult:
     error: PythonAnalysisError | None
 
 
+@observed_stage("python_analysis")
 def run_python_analysis(
     columns: Sequence[str],
     rows: Sequence[Sequence[object]],

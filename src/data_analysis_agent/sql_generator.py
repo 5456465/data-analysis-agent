@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol, TypeAlias
 
 from data_analysis_agent.metric_catalog import format_business_semantics_context
+from data_analysis_agent.observability import observed_stage
 from data_analysis_agent.schema import DatabaseSchema
 
 
@@ -102,6 +103,7 @@ User question:
 """
 
 
+@observed_stage("sql_generation")
 def generate_sql(
     question: str,
     schema: DatabaseSchema,

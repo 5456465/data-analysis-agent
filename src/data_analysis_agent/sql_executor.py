@@ -8,6 +8,8 @@ from typing import Literal
 
 import duckdb
 
+from data_analysis_agent.observability import observed_stage
+
 
 DEFAULT_MAX_ROWS = 200
 
@@ -44,6 +46,7 @@ class SQLResult:
     error: SQLExecutionError | None
 
 
+@observed_stage("sql_execution")
 def run_readonly_sql(
     database_path: str | Path,
     sql: str,

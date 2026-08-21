@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from data_analysis_agent.answer_synthesis import AnswerSynthesis, Locale
+from data_analysis_agent.observability import observe_stage
 from data_analysis_agent.result_validation import ValidationStatus
 
 
@@ -105,27 +106,28 @@ def generate_natural_language_answer(
     if synthesis.status != "success":
         return NaturalLanguageAnswer("skipped", None, None)
 
-    prompt = build_natural_language_prompt(
-        question,
-        validation_status,
-        synthesis,
-        locale,
-    )
-    try:
-        response = model(prompt)
-    except Exception as exc:
-        return NaturalLanguageAnswer(
-            "fallback",
-            synthesis.answer,
-            f"model_error: {type(exc).__name__}",
+    with observe_stage("natural_language_synthesis"):
+        prompt = build_natural_language_prompt(
+            question,
+            validation_status,
+            synthesis,
+            locale,
         )
-    if not isinstance(response, str) or not response.strip():
-        return NaturalLanguageAnswer(
-            "fallback",
-            synthesis.answer,
-            "invalid_model_output",
-        )
-    return NaturalLanguageAnswer("success", response.strip(), None)
+        try:
+            response = model(prompt)
+        except Exception as exc:
+            return NaturalLanguageAnswer(
+                "fallback",
+                synthesis.answer,
+                f"model_error: {type(exc).__name__}",
+            )
+        if not isinstance(response, str) or not response.strip():
+            return NaturalLanguageAnswer(
+                "fallback",
+                synthesis.answer,
+                "invalid_model_output",
+            )
+        return NaturalLanguageAnswer("success", response.strip(), None)
 
 
 def _redact_secret(value: str) -> str:

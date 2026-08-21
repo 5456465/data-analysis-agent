@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
+from data_analysis_agent.observability import observed_stage
 from data_analysis_agent.sql_generator import TextToSQLModel
 
 
@@ -102,6 +103,7 @@ User question:
 """
 
 
+@observed_stage("routing")
 def route_question(
     question: str,
     model: TextToSQLModel,

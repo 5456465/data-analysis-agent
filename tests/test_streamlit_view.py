@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import data_analysis_agent.streamlit_view as streamlit_view_module
 from data_analysis_agent.analysis_planner import PythonAnalysisPlan
 from data_analysis_agent.answer_synthesis import AnswerSynthesis
 from data_analysis_agent.final_answer_service import FinalAnswerResult
@@ -231,6 +232,11 @@ def test_helpers_do_not_modify_final_result() -> None:
     extract_growth_chart_data(final)
 
     assert repr(final) == before
+
+
+def test_streamlit_view_exposes_no_observability_renderer() -> None:
+    assert not hasattr(streamlit_view_module, "build_runtime_metrics_display")
+    assert not hasattr(streamlit_view_module, "RUNTIME_METRICS_SECTION_LABEL")
 
 
 def test_sql_only_status_summary_uses_sql_labels() -> None:

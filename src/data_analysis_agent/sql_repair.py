@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal
 
+from data_analysis_agent.observability import observed_stage
 from data_analysis_agent.schema import DatabaseSchema
 from data_analysis_agent.sql_executor import SQLExecutionError
 from data_analysis_agent.sql_generator import (
@@ -93,6 +94,7 @@ Schema context:
 """
 
 
+@observed_stage("sql_repair")
 def repair_sql(
     question: str,
     schema: DatabaseSchema,

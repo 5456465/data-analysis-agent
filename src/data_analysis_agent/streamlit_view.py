@@ -26,6 +26,7 @@ _TRACE_STAGE_LABELS = {
     "python_analysis": "Python 分析",
     "validation": "结果校验",
     "answer_synthesis": "答案生成",
+    "natural_language_synthesis": "自然语言回答",
 }
 _TRACE_STATUS_LABELS = {
     "success": "成功",
