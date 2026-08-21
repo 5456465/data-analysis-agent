@@ -87,9 +87,14 @@ def _select_example(question: str) -> None:
 def _render_result(final_result: FinalAnswerResult) -> None:
     summary = build_status_summary(final_result)
     status_columns = st.columns(3)
-    status_columns[0].metric("Route", summary.route)
-    status_columns[1].metric("Validation", summary.validation)
-    status_columns[2].metric("Analysis Tool", summary.tool)
+    for column, label, value in zip(
+        status_columns,
+        ("Route", "Validation", "Analysis Tool"),
+        (summary.route, summary.validation, summary.tool),
+        strict=True,
+    ):
+        column.caption(label)
+        column.markdown(f"**{value}**")
 
     st.subheader("Final Answer")
     if synthesis_is_blocked(final_result):
