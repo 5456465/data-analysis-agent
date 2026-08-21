@@ -25,10 +25,9 @@ from data_analysis_agent.streamlit_view import (
 def main() -> None:
     """Render the single-question Streamlit analysis workbench."""
 
-    st.title("智能数据分析 Agent")
+    st.title("电商数据分析助手")
     st.caption(
-        "使用自然语言询问 Olist 电商数据中的业务问题。Agent 会自动选择工具、"
-        "生成安全 SQL、执行受控分析、验证结果并展示执行证据。"
+        "使用自然语言查询 Olist 电商数据，自动完成数据分析、结果校验与证据追踪。"
     )
     capability_columns = st.columns(3)
     for column, label in zip(
