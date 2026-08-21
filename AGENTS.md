@@ -26,8 +26,8 @@ The primary goal is to demonstrate:
 - Result validation
 - Evaluation and testing
 
-This is not intended to become a large enterprise platform during the MVP
-stage.
+This remains a portfolio-scale project and is not intended to become a large
+enterprise platform.
 
 ## 2. User Background and Constraints
 
@@ -42,15 +42,16 @@ Prefer solutions that are:
 - Runnable
 - Testable
 - Easy to explain in interviews
-- Appropriate for a 20-day MVP
+- Appropriate for the current late-stage portfolio scope
 
 Avoid unnecessary complexity.
 
-## 3. MVP Workflow
+## 3. Current Workflow
 
 The intended workflow is:
 
-1. Receive an English natural-language question during the MVP.
+1. Receive a Chinese or English natural-language question through a supported
+   product interface.
 2. Retrieve the relevant business metric definition when needed.
 3. Inspect the database schema.
 4. Decide whether to use SQL, Python analysis, or chart generation.
@@ -77,7 +78,7 @@ Do not implement all tools at once. Implement and test them incrementally.
 Unless there is a clear technical reason to change:
 
 - Python 3.11+
-- DuckDB for the selected Olist MVP
+- DuckDB for the selected Olist project
 - Pandas
 - Pydantic
 - LangGraph or an explicit Python workflow
@@ -89,24 +90,27 @@ Prefer an explicit Python workflow over an Agent framework when the framework
 does not provide meaningful value.
 
 Do not introduce multiple agents, microservices, Kubernetes, model fine-tuning,
-or complex authentication during the MVP.
+or complex authentication in the current project scope.
 
 ## 5.1 Language Architecture
 
-The current MVP is English-first:
+The current product supports Chinese questions and `zh-CN` answers while
+preserving English internal technical contracts:
 
-- Product input and output are English only.
+- Streamlit is a Chinese business-user interface.
+- FastAPI accepts Chinese questions and passes them unchanged into the existing
+  Agent workflow.
+- Product-level services support Chinese question input and `zh-CN` answer
+  rendering; English input and answer rendering remain supported.
 - System prompts, Agent prompts, tool names, tool descriptions, and evaluation
-  questions are English.
+  questions use English unless an implemented product behavior requires
+  otherwise.
 - Python filenames, modules, classes, functions, variables, tests, and
   machine-readable configuration use English.
 - DuckDB table and column names preserve the original English Olist schema.
 - SQL uses those original English identifiers.
-- Metrics, dimensions, and semantic entities use stable English canonical
-  identifiers.
-- When the question interface is implemented, non-English input must return an
-  explicit unsupported-language response. Do not add an implicit translation
-  chain.
+- Routes, statuses, stages, tool operations, metrics, dimensions, and semantic
+  entities use stable English canonical identifiers.
 
 Preserve source-language data:
 
@@ -116,16 +120,16 @@ Preserve source-language data:
 - Prefer the official English label for analysis while keeping the Portuguese
   value traceable.
 
-Chinese question answering is a later extension, not part of the current MVP.
-Add it primarily through semantic aliases, prompts, and response rendering.
-Chinese input must still map to English canonical identifiers and the existing
-English schema. Do not create a Chinese database schema, duplicate translated
-tables, change SQL tool interfaces, or introduce a full i18n framework now.
+Chinese support is implemented through semantic aliases, prompts, and response
+rendering. Chinese input must continue to map to English canonical identifiers
+and the existing English schema. Do not create a Chinese database schema,
+duplicate translated tables, localize machine contracts, change SQL tool
+interfaces, or introduce a full i18n framework.
 
 Chinese prose in repository documentation and Chinese explanations in Codex
-responses are developer-facing communication; they do not imply that the
-product runtime supports Chinese. Do not claim bilingual support until the
-corresponding implementation and English/Chinese evaluation tests exist.
+responses remain developer-facing communication. User-facing Chinese support
+does not imply that internal technical identifiers or machine-readable
+contracts should be translated.
 
 ## 6. Development Rules
 
@@ -377,8 +381,8 @@ When assisting the developer:
 
 - Use Chinese for explanations unless asked otherwise.
 - Keep code identifiers and technical terms in English where appropriate.
-- Treat this response-language preference as developer communication, separate
-  from the MVP product's English-only input and output contract.
+- Treat this response-language preference as developer communication; product
+  language behavior remains defined by the implemented interfaces and tests.
 - Be direct and critical.
 - Point out overengineering and unrealistic scope.
 - Prefer one recommended solution over a long list of alternatives.
