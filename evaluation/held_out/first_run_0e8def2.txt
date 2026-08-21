@@ -1,0 +1,176 @@
+Held-out Evaluation Summary
+Total: 18
+Passed: 16
+Failed: 2
+Overall pass rate: 88.89%
+Disposition accuracy: 94.44%
+Route accuracy: 100.00%
+Operation accuracy: 100.00%
+Semantic accuracy: 85.71%
+SQL_ONLY: 9 / 10
+calculate_growth: 3 / 4
+data_unanswerable: 2 / 2
+capability_unsupported: 2 / 2
+
+Cases
+ID: MTQ-001
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-002
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-003
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-004
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-005
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-006
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-007
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-008
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-009
+Category: sql_only
+Result: PASS
+Actual disposition: answer
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-010
+Category: sql_only
+Result: FAIL
+Actual disposition: unknown
+Route: sql_only -> sql_only
+Operation: None -> None
+Semantic correct: False
+Failure reason: disposition mismatch: expected answer, got unknown
+
+ID: MTQ-011
+Category: calculate_growth
+Result: PASS
+Actual disposition: answer
+Route: sql_then_python -> sql_then_python
+Operation: calculate_growth -> calculate_growth
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-012
+Category: calculate_growth
+Result: PASS
+Actual disposition: answer
+Route: sql_then_python -> sql_then_python
+Operation: calculate_growth -> calculate_growth
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-013
+Category: calculate_growth
+Result: FAIL
+Actual disposition: answer
+Route: sql_then_python -> sql_then_python
+Operation: calculate_growth -> calculate_growth
+Semantic correct: False
+Failure reason: growth point mismatch at period 2016-09-01 00:00:00: value
+
+ID: MTQ-014
+Category: calculate_growth
+Result: PASS
+Actual disposition: answer
+Route: sql_then_python -> sql_then_python
+Operation: calculate_growth -> calculate_growth
+Semantic correct: True
+Failure reason: None
+
+ID: MTQ-015
+Category: data_unanswerable
+Result: PASS
+Actual disposition: reject
+Route: None -> sql_only
+Operation: None -> None
+Semantic correct: None
+Failure reason: None
+
+ID: MTQ-016
+Category: data_unanswerable
+Result: PASS
+Actual disposition: reject
+Route: None -> sql_only
+Operation: None -> None
+Semantic correct: None
+Failure reason: None
+
+ID: MTQ-017
+Category: capability_unsupported
+Result: PASS
+Actual disposition: reject
+Route: None -> None
+Operation: None -> None
+Semantic correct: None
+Failure reason: None
+
+ID: MTQ-018
+Category: capability_unsupported
+Result: PASS
+Actual disposition: reject
+Route: None -> None
+Operation: None -> None
+Semantic correct: None
+Failure reason: None

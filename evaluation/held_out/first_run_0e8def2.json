@@ -1,0 +1,2530 @@
+{
+  "case_results": [
+    {
+      "question": "How many orders purchased during calendar year 2017 have the delivered status?",
+      "route_decision": {
+        "question": "How many orders purchased during calendar year 2017 have the delivered status?",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "Count of orders with year and status filters is a SQL-native aggregation.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "How many orders purchased during calendar year 2017 have the delivered status?",
+        "generated_sql": "SELECT COUNT(*) AS order_count FROM orders WHERE order_status = 'delivered' AND order_purchase_timestamp >= TIMESTAMP '2017-01-01' AND order_purchase_timestamp < TIMESTAMP '2018-01-01';",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT COUNT(*) AS order_count FROM orders WHERE order_status = 'delivered' AND order_purchase_timestamp >= TIMESTAMP '2017-01-01' AND order_purchase_timestamp < TIMESTAMP '2018-01-01';",
+          "columns": [
+            "order_count"
+          ],
+          "rows": [
+            [
+              43428
+            ]
+          ],
+          "returned_row_count": 1,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT COUNT(*) AS order_count FROM orders WHERE order_status = 'delivered' AND order_purchase_timestamp >= TIMESTAMP '2017-01-01' AND order_purchase_timestamp < TIMESTAMP '2018-01-01';",
+        "columns": [
+          "order_count"
+        ],
+        "rows": [
+          [
+            43428
+          ]
+        ],
+        "returned_row_count": 1,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "What is the total freight value on order-item records handled by sellers located in São Paulo state (SP)?",
+      "route_decision": {
+        "question": "What is the total freight value on order-item records handled by sellers located in São Paulo state (SP)?",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "Total freight value is a direct SQL aggregation with filtering and joining, naturally handled by DuckDB.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "What is the total freight value on order-item records handled by sellers located in São Paulo state (SP)?",
+        "generated_sql": "SELECT SUM(oi.freight_value) AS total_freight_value FROM order_items oi JOIN sellers s ON oi.seller_id = s.seller_id WHERE s.seller_state = 'SP';",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT SUM(oi.freight_value) AS total_freight_value FROM order_items oi JOIN sellers s ON oi.seller_id = s.seller_id WHERE s.seller_state = 'SP';",
+          "columns": [
+            "total_freight_value"
+          ],
+          "rows": [
+            [
+              "1482487.67"
+            ]
+          ],
+          "returned_row_count": 1,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT SUM(oi.freight_value) AS total_freight_value FROM order_items oi JOIN sellers s ON oi.seller_id = s.seller_id WHERE s.seller_state = 'SP';",
+        "columns": [
+          "total_freight_value"
+        ],
+        "rows": [
+          [
+            "1482487.67"
+          ]
+        ],
+        "returned_row_count": 1,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "For every payment type, what is the average payment value per payment record? List payment types alphabetically.",
+      "route_decision": {
+        "question": "For every payment type, what is the average payment value per payment record? List payment types alphabetically.",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "The question requires grouping by payment type and computing the average payment value, which is a SQL-native aggregation with ordering.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "For every payment type, what is the average payment value per payment record? List payment types alphabetically.",
+        "generated_sql": "SELECT payment_type, AVG(payment_value) AS avg_payment_value FROM order_payments GROUP BY payment_type ORDER BY payment_type;",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT payment_type, AVG(payment_value) AS avg_payment_value FROM order_payments GROUP BY payment_type ORDER BY payment_type;",
+          "columns": [
+            "payment_type",
+            "avg_payment_value"
+          ],
+          "rows": [
+            [
+              "boleto",
+              145.03443540234534
+            ],
+            [
+              "credit_card",
+              163.31902063936454
+            ],
+            [
+              "debit_card",
+              142.57017004578157
+            ],
+            [
+              "not_defined",
+              0.0
+            ],
+            [
+              "voucher",
+              65.70335411255411
+            ]
+          ],
+          "returned_row_count": 5,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT payment_type, AVG(payment_value) AS avg_payment_value FROM order_payments GROUP BY payment_type ORDER BY payment_type;",
+        "columns": [
+          "payment_type",
+          "avg_payment_value"
+        ],
+        "rows": [
+          [
+            "boleto",
+            145.03443540234534
+          ],
+          [
+            "credit_card",
+            163.31902063936454
+          ],
+          [
+            "debit_card",
+            142.57017004578157
+          ],
+          [
+            "not_defined",
+            0.0
+          ],
+          [
+            "voucher",
+            65.70335411255411
+          ]
+        ],
+        "returned_row_count": 5,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "Among all orders purchased during calendar year 2018, what percentage belong to customers whose state is SP?",
+      "route_decision": {
+        "question": "Among all orders purchased during calendar year 2018, what percentage belong to customers whose state is SP?",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "Query is a direct aggregation with a WHERE clause and a percentage calculation, which DuckDB SQL can compute natively.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "Among all orders purchased during calendar year 2018, what percentage belong to customers whose state is SP?",
+        "generated_sql": "SELECT (COUNT(*) FILTER (WHERE c.customer_state = 'SP') * 100.0 / COUNT(*)) AS percentage_sp FROM orders o JOIN customers c ON o.customer_id = c.customer_id WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2018",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT (COUNT(*) FILTER (WHERE c.customer_state = 'SP') * 100.0 / COUNT(*)) AS percentage_sp FROM orders o JOIN customers c ON o.customer_id = c.customer_id WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2018",
+          "columns": [
+            "percentage_sp"
+          ],
+          "rows": [
+            [
+              44.196552554109346
+            ]
+          ],
+          "returned_row_count": 1,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT (COUNT(*) FILTER (WHERE c.customer_state = 'SP') * 100.0 / COUNT(*)) AS percentage_sp FROM orders o JOIN customers c ON o.customer_id = c.customer_id WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2018",
+        "columns": [
+          "percentage_sp"
+        ],
+        "rows": [
+          [
+            44.196552554109346
+          ]
+        ],
+        "returned_row_count": 1,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "For each customer state with at least 1,000 review records linked to delivered orders, report the review-record count and average review score, ordered alphabetically by state.",
+      "route_decision": {
+        "question": "For each customer state with at least 1,000 review records linked to delivered orders, report the review-record count and average review score, ordered alphabetically by state.",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "The query requires grouping, filtering with HAVING, and simple aggregation (count and average), all natively supported by SQL.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "For each customer state with at least 1,000 review records linked to delivered orders, report the review-record count and average review score, ordered alphabetically by state.",
+        "generated_sql": "SELECT c.customer_state, COUNT(r.review_id) AS review_record_count, AVG(r.review_score) AS average_review_score FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_reviews r ON o.order_id = r.order_id WHERE o.order_status = 'delivered' GROUP BY c.customer_state HAVING COUNT(r.review_id) >= 1000 ORDER BY c.customer_state;",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT c.customer_state, COUNT(r.review_id) AS review_record_count, AVG(r.review_score) AS average_review_score FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_reviews r ON o.order_id = r.order_id WHERE o.order_status = 'delivered' GROUP BY c.customer_state HAVING COUNT(r.review_id) >= 1000 ORDER BY c.customer_state;",
+          "columns": [
+            "customer_state",
+            "review_record_count",
+            "average_review_score"
+          ],
+          "rows": [
+            [
+              "BA",
+              3246,
+              3.9294516327788047
+            ],
+            [
+              "CE",
+              1276,
+              3.938087774294671
+            ],
+            [
+              "DF",
+              2089,
+              4.131641933939684
+            ],
+            [
+              "ES",
+              1978,
+              4.082406471183013
+            ],
+            [
+              "GO",
+              1963,
+              4.102903718797759
+            ],
+            [
+              "MG",
+              11354,
+              4.192707415888673
+            ],
+            [
+              "PE",
+              1590,
+              4.0855345911949685
+            ],
+            [
+              "PR",
+              4919,
+              4.238259808904249
+            ],
+            [
+              "RJ",
+              12281,
+              3.9634394593274163
+            ],
+            [
+              "RS",
+              5364,
+              4.185495898583147
+            ],
+            [
+              "SC",
+              3533,
+              4.131050099065949
+            ],
+            [
+              "SP",
+              40484,
+              4.246196028060468
+            ]
+          ],
+          "returned_row_count": 12,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT c.customer_state, COUNT(r.review_id) AS review_record_count, AVG(r.review_score) AS average_review_score FROM customers c JOIN orders o ON c.customer_id = o.customer_id JOIN order_reviews r ON o.order_id = r.order_id WHERE o.order_status = 'delivered' GROUP BY c.customer_state HAVING COUNT(r.review_id) >= 1000 ORDER BY c.customer_state;",
+        "columns": [
+          "customer_state",
+          "review_record_count",
+          "average_review_score"
+        ],
+        "rows": [
+          [
+            "BA",
+            3246,
+            3.9294516327788047
+          ],
+          [
+            "CE",
+            1276,
+            3.938087774294671
+          ],
+          [
+            "DF",
+            2089,
+            4.131641933939684
+          ],
+          [
+            "ES",
+            1978,
+            4.082406471183013
+          ],
+          [
+            "GO",
+            1963,
+            4.102903718797759
+          ],
+          [
+            "MG",
+            11354,
+            4.192707415888673
+          ],
+          [
+            "PE",
+            1590,
+            4.0855345911949685
+          ],
+          [
+            "PR",
+            4919,
+            4.238259808904249
+          ],
+          [
+            "RJ",
+            12281,
+            3.9634394593274163
+          ],
+          [
+            "RS",
+            5364,
+            4.185495898583147
+          ],
+          [
+            "SC",
+            3533,
+            4.131050099065949
+          ],
+          [
+            "SP",
+            40484,
+            4.246196028060468
+          ]
+        ],
+        "returned_row_count": 12,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "Which seven seller city-state pairs handled the most order-item records? Rank them by item count from highest to lowest.",
+      "route_decision": {
+        "question": "Which seven seller city-state pairs handled the most order-item records? Rank them by item count from highest to lowest.",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "The query requires grouping by seller city and state, counting order-item records, and ranking top 7, which DuckDB SQL can directly compute with GROUP BY, ORDER BY, and LIMIT.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "Which seven seller city-state pairs handled the most order-item records? Rank them by item count from highest to lowest.",
+        "generated_sql": "SELECT s.seller_city, s.seller_state, COUNT(*) AS item_count FROM order_items oi JOIN sellers s ON oi.seller_id = s.seller_id GROUP BY s.seller_city, s.seller_state ORDER BY item_count DESC LIMIT 7;",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT s.seller_city, s.seller_state, COUNT(*) AS item_count FROM order_items oi JOIN sellers s ON oi.seller_id = s.seller_id GROUP BY s.seller_city, s.seller_state ORDER BY item_count DESC LIMIT 7;",
+          "columns": [
+            "seller_city",
+            "seller_state",
+            "item_count"
+          ],
+          "rows": [
+            [
+              "sao paulo",
+              "SP",
+              27983
+            ],
+            [
+              "ibitinga",
+              "SP",
+              7750
+            ],
+            [
+              "santo andre",
+              "SP",
+              2964
+            ],
+            [
+              "curitiba",
+              "PR",
+              2944
+            ],
+            [
+              "sao jose do rio preto",
+              "SP",
+              2579
+            ],
+            [
+              "belo horizonte",
+              "MG",
+              2457
+            ],
+            [
+              "rio de janeiro",
+              "RJ",
+              2436
+            ]
+          ],
+          "returned_row_count": 7,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT s.seller_city, s.seller_state, COUNT(*) AS item_count FROM order_items oi JOIN sellers s ON oi.seller_id = s.seller_id GROUP BY s.seller_city, s.seller_state ORDER BY item_count DESC LIMIT 7;",
+        "columns": [
+          "seller_city",
+          "seller_state",
+          "item_count"
+        ],
+        "rows": [
+          [
+            "sao paulo",
+            "SP",
+            27983
+          ],
+          [
+            "ibitinga",
+            "SP",
+            7750
+          ],
+          [
+            "santo andre",
+            "SP",
+            2964
+          ],
+          [
+            "curitiba",
+            "PR",
+            2944
+          ],
+          [
+            "sao jose do rio preto",
+            "SP",
+            2579
+          ],
+          [
+            "belo horizonte",
+            "MG",
+            2457
+          ],
+          [
+            "rio de janeiro",
+            "RJ",
+            2436
+          ]
+        ],
+        "returned_row_count": 7,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "For each purchase month in 2017, what total payment value was recorded for payment records linked to those orders? Return the months in chronological order.",
+      "route_decision": {
+        "question": "For each purchase month in 2017, what total payment value was recorded for payment records linked to those orders? Return the months in chronological order.",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "The question asks for a simple month-by-month sum of payment values filtered to 2017, which DuckDB SQL can directly produce with GROUP BY and ORDER BY.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "For each purchase month in 2017, what total payment value was recorded for payment records linked to those orders? Return the months in chronological order.",
+        "generated_sql": "SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month, SUM(p.payment_value) AS total_payment_value FROM orders o JOIN order_payments p ON o.order_id = p.order_id WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2017 GROUP BY purchase_month ORDER BY purchase_month;",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month, SUM(p.payment_value) AS total_payment_value FROM orders o JOIN order_payments p ON o.order_id = p.order_id WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2017 GROUP BY purchase_month ORDER BY purchase_month;",
+          "columns": [
+            "purchase_month",
+            "total_payment_value"
+          ],
+          "rows": [
+            [
+              "2017-01-01 00:00:00",
+              "138488.04"
+            ],
+            [
+              "2017-02-01 00:00:00",
+              "291908.01"
+            ],
+            [
+              "2017-03-01 00:00:00",
+              "449863.60"
+            ],
+            [
+              "2017-04-01 00:00:00",
+              "417788.03"
+            ],
+            [
+              "2017-05-01 00:00:00",
+              "592918.82"
+            ],
+            [
+              "2017-06-01 00:00:00",
+              "511276.38"
+            ],
+            [
+              "2017-07-01 00:00:00",
+              "592382.92"
+            ],
+            [
+              "2017-08-01 00:00:00",
+              "674396.32"
+            ],
+            [
+              "2017-09-01 00:00:00",
+              "727762.45"
+            ],
+            [
+              "2017-10-01 00:00:00",
+              "779677.88"
+            ],
+            [
+              "2017-11-01 00:00:00",
+              "1194882.80"
+            ],
+            [
+              "2017-12-01 00:00:00",
+              "878401.48"
+            ]
+          ],
+          "returned_row_count": 12,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month, SUM(p.payment_value) AS total_payment_value FROM orders o JOIN order_payments p ON o.order_id = p.order_id WHERE EXTRACT(YEAR FROM o.order_purchase_timestamp) = 2017 GROUP BY purchase_month ORDER BY purchase_month;",
+        "columns": [
+          "purchase_month",
+          "total_payment_value"
+        ],
+        "rows": [
+          [
+            "2017-01-01 00:00:00",
+            "138488.04"
+          ],
+          [
+            "2017-02-01 00:00:00",
+            "291908.01"
+          ],
+          [
+            "2017-03-01 00:00:00",
+            "449863.60"
+          ],
+          [
+            "2017-04-01 00:00:00",
+            "417788.03"
+          ],
+          [
+            "2017-05-01 00:00:00",
+            "592918.82"
+          ],
+          [
+            "2017-06-01 00:00:00",
+            "511276.38"
+          ],
+          [
+            "2017-07-01 00:00:00",
+            "592382.92"
+          ],
+          [
+            "2017-08-01 00:00:00",
+            "674396.32"
+          ],
+          [
+            "2017-09-01 00:00:00",
+            "727762.45"
+          ],
+          [
+            "2017-10-01 00:00:00",
+            "779677.88"
+          ],
+          [
+            "2017-11-01 00:00:00",
+            "1194882.80"
+          ],
+          [
+            "2017-12-01 00:00:00",
+            "878401.48"
+          ]
+        ],
+        "returned_row_count": 12,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "Among credit-card payment records with a recorded installment count, report the count, mean, sample standard deviation, median, minimum, and maximum number of installments.",
+      "route_decision": {
+        "question": "Among credit-card payment records with a recorded installment count, report the count, mean, sample standard deviation, median, minimum, and maximum number of installments.",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "Descriptive statistics (count, mean, stddev, median, min, max) are SQL-native final calculations.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "Among credit-card payment records with a recorded installment count, report the count, mean, sample standard deviation, median, minimum, and maximum number of installments.",
+        "generated_sql": "SELECT \n  count(*) AS record_count,\n  avg(payment_installments) AS mean_installments,\n  stddev_samp(payment_installments) AS sample_stddev_installments,\n  median(payment_installments) AS median_installments,\n  min(payment_installments) AS min_installments,\n  max(payment_installments) AS max_installments\nFROM order_payments\nWHERE payment_type = 'credit_card'\n  AND payment_installments IS NOT NULL;",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT \n  count(*) AS record_count,\n  avg(payment_installments) AS mean_installments,\n  stddev_samp(payment_installments) AS sample_stddev_installments,\n  median(payment_installments) AS median_installments,\n  min(payment_installments) AS min_installments,\n  max(payment_installments) AS max_installments\nFROM order_payments\nWHERE payment_type = 'credit_card'\n  AND payment_installments IS NOT NULL;",
+          "columns": [
+            "record_count",
+            "mean_installments",
+            "sample_stddev_installments",
+            "median_installments",
+            "min_installments",
+            "max_installments"
+          ],
+          "rows": [
+            [
+              76795,
+              3.507155413763917,
+              2.8509902952702952,
+              3.0,
+              0,
+              24
+            ]
+          ],
+          "returned_row_count": 1,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT \n  count(*) AS record_count,\n  avg(payment_installments) AS mean_installments,\n  stddev_samp(payment_installments) AS sample_stddev_installments,\n  median(payment_installments) AS median_installments,\n  min(payment_installments) AS min_installments,\n  max(payment_installments) AS max_installments\nFROM order_payments\nWHERE payment_type = 'credit_card'\n  AND payment_installments IS NOT NULL;",
+        "columns": [
+          "record_count",
+          "mean_installments",
+          "sample_stddev_installments",
+          "median_installments",
+          "min_installments",
+          "max_installments"
+        ],
+        "rows": [
+          [
+            76795,
+            3.507155413763917,
+            2.8509902952702952,
+            3.0,
+            0,
+            24
+          ]
+        ],
+        "returned_row_count": 1,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "Among products with positive recorded weight, length, height, and width, what is the Pearson correlation between product weight and product volume (length × height × width)?",
+      "route_decision": {
+        "question": "Among products with positive recorded weight, length, height, and width, what is the Pearson correlation between product weight and product volume (length × height × width)?",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "DuckDB can compute the Pearson correlation directly using CORR() on the weight column and the computed volume expression.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": {
+        "question": "Among products with positive recorded weight, length, height, and width, what is the Pearson correlation between product weight and product volume (length × height × width)?",
+        "generated_sql": "SELECT corr(product_weight_g, product_length_cm * product_height_cm * product_width_cm) AS pearson_correlation FROM products WHERE product_weight_g > 0 AND product_length_cm > 0 AND product_height_cm > 0 AND product_width_cm > 0",
+        "status": "success",
+        "execution_result": {
+          "executed_sql": "SELECT corr(product_weight_g, product_length_cm * product_height_cm * product_width_cm) AS pearson_correlation FROM products WHERE product_weight_g > 0 AND product_length_cm > 0 AND product_height_cm > 0 AND product_width_cm > 0",
+          "columns": [
+            "pearson_correlation"
+          ],
+          "rows": [
+            [
+              0.8030351396878477
+            ]
+          ],
+          "returned_row_count": 1,
+          "truncated": false,
+          "status": "success",
+          "error": null
+        },
+        "generation_error": null,
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": {
+        "executed_sql": "SELECT corr(product_weight_g, product_length_cm * product_height_cm * product_width_cm) AS pearson_correlation FROM products WHERE product_weight_g > 0 AND product_length_cm > 0 AND product_height_cm > 0 AND product_width_cm > 0",
+        "columns": [
+          "pearson_correlation"
+        ],
+        "rows": [
+          [
+            0.8030351396878477
+          ]
+        ],
+        "returned_row_count": 1,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": null,
+      "error": null
+    },
+    {
+      "question": "Among delivered orders with both item and payment records, what is the average order-level difference between total payment value and the combined item price plus freight value?",
+      "route_decision": {
+        "question": "Among delivered orders with both item and payment records, what is the average order-level difference between total payment value and the combined item price plus freight value?",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "The requested average difference is a direct SQL aggregation over joined order, payment, and item records.",
+        "status": "success",
+        "error": null
+      },
+      "status": "sql_generation_error",
+      "sql_answer_result": {
+        "question": "Among delivered orders with both item and payment records, what is the average order-level difference between total payment value and the combined item price plus freight value?",
+        "generated_sql": null,
+        "status": "generation_error",
+        "execution_result": null,
+        "generation_error": {
+          "code": "invalid_model_output",
+          "message": "Extra data: line 1 column 297 (char 296)"
+        },
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": null,
+      "python_result": null,
+      "error": {
+        "code": "sql_generation_error",
+        "message": "Extra data: line 1 column 297 (char 296)"
+      }
+    },
+    {
+      "question": "How did the average item price per order-item record change from one purchase month to the next?",
+      "route_decision": {
+        "question": "How did the average item price per order-item record change from one purchase month to the next?",
+        "route": "sql_then_python",
+        "python_operation": "calculate_growth",
+        "reason": "The question explicitly asks for month-over-month change in average item price, which requires period-over-period growth calculation.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": null,
+      "analysis_plan": {
+        "question": "How did the average item price per order-item record change from one purchase month to the next?",
+        "python_operation": "calculate_growth",
+        "sql": "SELECT date_trunc('month', o.order_purchase_timestamp) AS purchase_month, AVG(oi.price) AS avg_item_price FROM order_items oi JOIN orders o ON oi.order_id = o.order_id GROUP BY purchase_month ORDER BY purchase_month",
+        "python_columns": [
+          "purchase_month",
+          "avg_item_price"
+        ],
+        "status": "success",
+        "error": null
+      },
+      "sql_result": {
+        "executed_sql": "SELECT date_trunc('month', o.order_purchase_timestamp) AS purchase_month, AVG(oi.price) AS avg_item_price FROM order_items oi JOIN orders o ON oi.order_id = o.order_id GROUP BY purchase_month ORDER BY purchase_month",
+        "columns": [
+          "purchase_month",
+          "avg_item_price"
+        ],
+        "rows": [
+          [
+            "2016-09-01 00:00:00",
+            44.56
+          ],
+          [
+            "2016-10-01 00:00:00",
+            136.384738292011
+          ],
+          [
+            "2016-12-01 00:00:00",
+            10.9
+          ],
+          [
+            "2017-01-01 00:00:00",
+            125.98206282722514
+          ],
+          [
+            "2017-02-01 00:00:00",
+            126.75705791901589
+          ],
+          [
+            "2017-03-01 00:00:00",
+            124.78143333333334
+          ],
+          [
+            "2017-04-01 00:00:00",
+            134.10105439642325
+          ],
+          [
+            "2017-05-01 00:00:00",
+            122.3576257253385
+          ],
+          [
+            "2017-06-01 00:00:00",
+            120.85922411387106
+          ],
+          [
+            "2017-07-01 00:00:00",
+            110.2083381279044
+          ],
+          [
+            "2017-08-01 00:00:00",
+            116.89850916496945
+          ],
+          [
+            "2017-09-01 00:00:00",
+            129.24895259780584
+          ],
+          [
+            "2017-10-01 00:00:00",
+            124.8063566328448
+          ],
+          [
+            "2017-11-01 00:00:00",
+            116.59219503750721
+          ],
+          [
+            "2017-12-01 00:00:00",
+            117.9318595434369
+          ],
+          [
+            "2018-01-01 00:00:00",
+            115.7444395711501
+          ],
+          [
+            "2018-02-01 00:00:00",
+            110.03372132429614
+          ],
+          [
+            "2018-03-01 00:00:00",
+            119.65601070950468
+          ],
+          [
+            "2018-04-01 00:00:00",
+            124.97150470219435
+          ],
+          [
+            "2018-05-01 00:00:00",
+            125.74355583596214
+          ],
+          [
+            "2018-06-01 00:00:00",
+            122.22722661768861
+          ],
+          [
+            "2018-07-01 00:00:00",
+            126.27005358150028
+          ],
+          [
+            "2018-08-01 00:00:00",
+            117.92029939293599
+          ],
+          [
+            "2018-09-01 00:00:00",
+            145.0
+          ]
+        ],
+        "returned_row_count": 24,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": {
+        "operation": "calculate_growth",
+        "status": "success",
+        "result": {
+          "points": [
+            {
+              "period": "2016-09-01 00:00:00",
+              "value": 44.56,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2016-10-01 00:00:00",
+              "value": 136.384738292011,
+              "previous_value": 44.56,
+              "absolute_change": 91.824738292011,
+              "growth_rate": 2.060698794704017
+            },
+            {
+              "period": "2016-12-01 00:00:00",
+              "value": 10.9,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2017-01-01 00:00:00",
+              "value": 125.98206282722514,
+              "previous_value": 10.9,
+              "absolute_change": 115.08206282722513,
+              "growth_rate": 10.557987415341755
+            },
+            {
+              "period": "2017-02-01 00:00:00",
+              "value": 126.75705791901589,
+              "previous_value": 125.98206282722514,
+              "absolute_change": 0.7749950917907569,
+              "growth_rate": 0.006151630433719791
+            },
+            {
+              "period": "2017-03-01 00:00:00",
+              "value": 124.78143333333334,
+              "previous_value": 126.75705791901589,
+              "absolute_change": -1.975624585682553,
+              "growth_rate": -0.015585913858499022
+            },
+            {
+              "period": "2017-04-01 00:00:00",
+              "value": 134.10105439642325,
+              "previous_value": 124.78143333333334,
+              "absolute_change": 9.319621063089912,
+              "growth_rate": 0.0746875621968058
+            },
+            {
+              "period": "2017-05-01 00:00:00",
+              "value": 122.3576257253385,
+              "previous_value": 134.10105439642325,
+              "absolute_change": -11.743428671084757,
+              "growth_rate": -0.08757148647295035
+            },
+            {
+              "period": "2017-06-01 00:00:00",
+              "value": 120.85922411387106,
+              "previous_value": 122.3576257253385,
+              "absolute_change": -1.498401611467429,
+              "growth_rate": -0.012246082764232093
+            },
+            {
+              "period": "2017-07-01 00:00:00",
+              "value": 110.2083381279044,
+              "previous_value": 120.85922411387106,
+              "absolute_change": -10.650885985966667,
+              "growth_rate": -0.08812638062223221
+            },
+            {
+              "period": "2017-08-01 00:00:00",
+              "value": 116.89850916496945,
+              "previous_value": 110.2083381279044,
+              "absolute_change": 6.690171037065056,
+              "growth_rate": 0.06070476291277208
+            },
+            {
+              "period": "2017-09-01 00:00:00",
+              "value": 129.24895259780584,
+              "previous_value": 116.89850916496945,
+              "absolute_change": 12.350443432836386,
+              "growth_rate": 0.10565099179671487
+            },
+            {
+              "period": "2017-10-01 00:00:00",
+              "value": 124.8063566328448,
+              "previous_value": 129.24895259780584,
+              "absolute_change": -4.442595964961043,
+              "growth_rate": -0.03437239432636193
+            },
+            {
+              "period": "2017-11-01 00:00:00",
+              "value": 116.59219503750721,
+              "previous_value": 124.8063566328448,
+              "absolute_change": -8.214161595337586,
+              "growth_rate": -0.06581525025605865
+            },
+            {
+              "period": "2017-12-01 00:00:00",
+              "value": 117.9318595434369,
+              "previous_value": 116.59219503750721,
+              "absolute_change": 1.33966450592969,
+              "growth_rate": 0.011490173124356445
+            },
+            {
+              "period": "2018-01-01 00:00:00",
+              "value": 115.7444395711501,
+              "previous_value": 117.9318595434369,
+              "absolute_change": -2.187419972286804,
+              "growth_rate": -0.018548168245249533
+            },
+            {
+              "period": "2018-02-01 00:00:00",
+              "value": 110.03372132429614,
+              "previous_value": 115.7444395711501,
+              "absolute_change": -5.710718246853958,
+              "growth_rate": -0.04933902888132679
+            },
+            {
+              "period": "2018-03-01 00:00:00",
+              "value": 119.65601070950468,
+              "previous_value": 110.03372132429614,
+              "absolute_change": 9.622289385208546,
+              "growth_rate": 0.08744855003903139
+            },
+            {
+              "period": "2018-04-01 00:00:00",
+              "value": 124.97150470219435,
+              "previous_value": 119.65601070950468,
+              "absolute_change": 5.315493992689667,
+              "growth_rate": 0.04442312560122347
+            },
+            {
+              "period": "2018-05-01 00:00:00",
+              "value": 125.74355583596214,
+              "previous_value": 124.97150470219435,
+              "absolute_change": 0.7720511337677891,
+              "growth_rate": 0.006177817380110594
+            },
+            {
+              "period": "2018-06-01 00:00:00",
+              "value": 122.22722661768861,
+              "previous_value": 125.74355583596214,
+              "absolute_change": -3.516329218273526,
+              "growth_rate": -0.02796428965998646
+            },
+            {
+              "period": "2018-07-01 00:00:00",
+              "value": 126.27005358150028,
+              "previous_value": 122.22722661768861,
+              "absolute_change": 4.042826963811663,
+              "growth_rate": 0.03307632084672196
+            },
+            {
+              "period": "2018-08-01 00:00:00",
+              "value": 117.92029939293599,
+              "previous_value": 126.27005358150028,
+              "absolute_change": -8.34975418856429,
+              "growth_rate": -0.0661261633438287
+            },
+            {
+              "period": "2018-09-01 00:00:00",
+              "value": 145.0,
+              "previous_value": 117.92029939293599,
+              "absolute_change": 27.079700607064012,
+              "growth_rate": 0.2296440964488106
+            }
+          ],
+          "period_count": 24
+        },
+        "error": null
+      },
+      "error": null
+    },
+    {
+      "question": "Among orders with at least one payment record, how did the average order-level total payment value change from one purchase month to the next?",
+      "route_decision": {
+        "question": "Among orders with at least one payment record, how did the average order-level total payment value change from one purchase month to the next?",
+        "route": "sql_then_python",
+        "python_operation": "calculate_growth",
+        "reason": "Question asks for month-over-month change in average order-level total payment value, requiring period-over-period growth calculation.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": null,
+      "analysis_plan": {
+        "question": "Among orders with at least one payment record, how did the average order-level total payment value change from one purchase month to the next?",
+        "python_operation": "calculate_growth",
+        "sql": "WITH order_totals AS (SELECT order_id, SUM(payment_value) AS total_payment FROM order_payments GROUP BY order_id) SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month, AVG(ot.total_payment) AS avg_order_payment_value FROM orders o JOIN order_totals ot ON o.order_id = ot.order_id GROUP BY DATE_TRUNC('month', o.order_purchase_timestamp) ORDER BY purchase_month",
+        "python_columns": [
+          "purchase_month",
+          "avg_order_payment_value"
+        ],
+        "status": "success",
+        "error": null
+      },
+      "sql_result": {
+        "executed_sql": "WITH order_totals AS (SELECT order_id, SUM(payment_value) AS total_payment FROM order_payments GROUP BY order_id) SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month, AVG(ot.total_payment) AS avg_order_payment_value FROM orders o JOIN order_totals ot ON o.order_id = ot.order_id GROUP BY DATE_TRUNC('month', o.order_purchase_timestamp) ORDER BY purchase_month",
+        "columns": [
+          "purchase_month",
+          "avg_order_payment_value"
+        ],
+        "rows": [
+          [
+            "2016-09-01 00:00:00",
+            84.08
+          ],
+          [
+            "2016-10-01 00:00:00",
+            182.37802469135804
+          ],
+          [
+            "2016-12-01 00:00:00",
+            19.62
+          ],
+          [
+            "2017-01-01 00:00:00",
+            173.11005
+          ],
+          [
+            "2017-02-01 00:00:00",
+            163.99326404494383
+          ],
+          [
+            "2017-03-01 00:00:00",
+            167.7343773303505
+          ],
+          [
+            "2017-04-01 00:00:00",
+            173.7886980033278
+          ],
+          [
+            "2017-05-01 00:00:00",
+            160.24832972972973
+          ],
+          [
+            "2017-06-01 00:00:00",
+            157.5582064714946
+          ],
+          [
+            "2017-07-01 00:00:00",
+            147.13932439145555
+          ],
+          [
+            "2017-08-01 00:00:00",
+            155.71376587393212
+          ],
+          [
+            "2017-09-01 00:00:00",
+            169.839544924154
+          ],
+          [
+            "2017-10-01 00:00:00",
+            168.36058734614554
+          ],
+          [
+            "2017-11-01 00:00:00",
+            158.38849416755036
+          ],
+          [
+            "2017-12-01 00:00:00",
+            154.8389705623127
+          ],
+          [
+            "2018-01-01 00:00:00",
+            153.39168799009494
+          ],
+          [
+            "2018-02-01 00:00:00",
+            147.512387039239
+          ],
+          [
+            "2018-03-01 00:00:00",
+            160.81710165025655
+          ],
+          [
+            "2018-04-01 00:00:00",
+            167.28425997982418
+          ],
+          [
+            "2018-05-01 00:00:00",
+            167.9007929579514
+          ],
+          [
+            "2018-06-01 00:00:00",
+            166.0257013134425
+          ],
+          [
+            "2018-07-01 00:00:00",
+            169.50743006993008
+          ],
+          [
+            "2018-08-01 00:00:00",
+            157.0063452088452
+          ],
+          [
+            "2018-09-01 00:00:00",
+            277.47125
+          ],
+          [
+            "2018-10-01 00:00:00",
+            147.4175
+          ]
+        ],
+        "returned_row_count": 25,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": {
+        "operation": "calculate_growth",
+        "status": "success",
+        "result": {
+          "points": [
+            {
+              "period": "2016-09-01 00:00:00",
+              "value": 84.08,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2016-10-01 00:00:00",
+              "value": 182.37802469135804,
+              "previous_value": 84.08,
+              "absolute_change": 98.29802469135804,
+              "growth_rate": 1.169101149992365
+            },
+            {
+              "period": "2016-12-01 00:00:00",
+              "value": 19.62,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2017-01-01 00:00:00",
+              "value": 173.11005,
+              "previous_value": 19.62,
+              "absolute_change": 153.49005,
+              "growth_rate": 7.8231422018348615
+            },
+            {
+              "period": "2017-02-01 00:00:00",
+              "value": 163.99326404494383,
+              "previous_value": 173.11005,
+              "absolute_change": -9.116785955056173,
+              "growth_rate": -0.05266468327550118
+            },
+            {
+              "period": "2017-03-01 00:00:00",
+              "value": 167.7343773303505,
+              "previous_value": 163.99326404494383,
+              "absolute_change": 3.7411132854066693,
+              "growth_rate": 0.02281260335413157
+            },
+            {
+              "period": "2017-04-01 00:00:00",
+              "value": 173.7886980033278,
+              "previous_value": 167.7343773303505,
+              "absolute_change": 6.054320672977298,
+              "growth_rate": 0.036094691913115685
+            },
+            {
+              "period": "2017-05-01 00:00:00",
+              "value": 160.24832972972973,
+              "previous_value": 173.7886980033278,
+              "absolute_change": -13.540368273598062,
+              "growth_rate": -0.07791282418917014
+            },
+            {
+              "period": "2017-06-01 00:00:00",
+              "value": 157.5582064714946,
+              "previous_value": 160.24832972972973,
+              "absolute_change": -2.6901232582351327,
+              "growth_rate": -0.016787215584538183
+            },
+            {
+              "period": "2017-07-01 00:00:00",
+              "value": 147.13932439145555,
+              "previous_value": 157.5582064714946,
+              "absolute_change": -10.418882080039054,
+              "growth_rate": -0.06612719396449868
+            },
+            {
+              "period": "2017-08-01 00:00:00",
+              "value": 155.71376587393212,
+              "previous_value": 147.13932439145555,
+              "absolute_change": 8.574441482476573,
+              "growth_rate": 0.058274302386116535
+            },
+            {
+              "period": "2017-09-01 00:00:00",
+              "value": 169.839544924154,
+              "previous_value": 155.71376587393212,
+              "absolute_change": 14.125779050221894,
+              "growth_rate": 0.09071631509868118
+            },
+            {
+              "period": "2017-10-01 00:00:00",
+              "value": 168.36058734614554,
+              "previous_value": 169.839544924154,
+              "absolute_change": -1.478957578008476,
+              "growth_rate": -0.00870796950538781
+            },
+            {
+              "period": "2017-11-01 00:00:00",
+              "value": 158.38849416755036,
+              "previous_value": 168.36058734614554,
+              "absolute_change": -9.972093178595173,
+              "growth_rate": -0.05923056776995424
+            },
+            {
+              "period": "2017-12-01 00:00:00",
+              "value": 154.8389705623127,
+              "previous_value": 158.38849416755036,
+              "absolute_change": -3.5495236052376526,
+              "growth_rate": -0.022410236449895215
+            },
+            {
+              "period": "2018-01-01 00:00:00",
+              "value": 153.39168799009494,
+              "previous_value": 154.8389705623127,
+              "absolute_change": -1.4472825722177731,
+              "growth_rate": -0.009347017530288573
+            },
+            {
+              "period": "2018-02-01 00:00:00",
+              "value": 147.512387039239,
+              "previous_value": 153.39168799009494,
+              "absolute_change": -5.879300950855935,
+              "growth_rate": -0.038328680177478605
+            },
+            {
+              "period": "2018-03-01 00:00:00",
+              "value": 160.81710165025655,
+              "previous_value": 147.512387039239,
+              "absolute_change": 13.304714611017545,
+              "growth_rate": 0.09019388051444403
+            },
+            {
+              "period": "2018-04-01 00:00:00",
+              "value": 167.28425997982418,
+              "previous_value": 160.81710165025655,
+              "absolute_change": 6.4671583295676385,
+              "growth_rate": 0.040214369387357514
+            },
+            {
+              "period": "2018-05-01 00:00:00",
+              "value": 167.9007929579514,
+              "previous_value": 167.28425997982418,
+              "absolute_change": 0.6165329781272249,
+              "growth_rate": 0.0036855408763596985
+            },
+            {
+              "period": "2018-06-01 00:00:00",
+              "value": 166.0257013134425,
+              "previous_value": 167.9007929579514,
+              "absolute_change": -1.875091644508899,
+              "growth_rate": -0.011167854609111296
+            },
+            {
+              "period": "2018-07-01 00:00:00",
+              "value": 169.50743006993008,
+              "previous_value": 166.0257013134425,
+              "absolute_change": 3.48172875648757,
+              "growth_rate": 0.020971022732886157
+            },
+            {
+              "period": "2018-08-01 00:00:00",
+              "value": 157.0063452088452,
+              "previous_value": 169.50743006993008,
+              "absolute_change": -12.501084861084877,
+              "growth_rate": -0.07374948021999726
+            },
+            {
+              "period": "2018-09-01 00:00:00",
+              "value": 277.47125,
+              "previous_value": 157.0063452088452,
+              "absolute_change": 120.4649047911548,
+              "growth_rate": 0.7672613780730705
+            },
+            {
+              "period": "2018-10-01 00:00:00",
+              "value": 147.4175,
+              "previous_value": 277.47125,
+              "absolute_change": -130.05375,
+              "growth_rate": -0.46871072228203825
+            }
+          ],
+          "period_count": 25
+        },
+        "error": null
+      },
+      "error": null
+    },
+    {
+      "question": "Among orders with both purchase and customer delivery timestamps, how did the average delivery duration in days change from one purchase month to the next?",
+      "route_decision": {
+        "question": "Among orders with both purchase and customer delivery timestamps, how did the average delivery duration in days change from one purchase month to the next?",
+        "route": "sql_then_python",
+        "python_operation": "calculate_growth",
+        "reason": "The question asks for month-over-month change in average delivery duration, which requires period-over-period growth calculation beyond SQL-native aggregation.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": null,
+      "analysis_plan": {
+        "question": "Among orders with both purchase and customer delivery timestamps, how did the average delivery duration in days change from one purchase month to the next?",
+        "python_operation": "calculate_growth",
+        "sql": "SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month, AVG(DATEDIFF('day', o.order_purchase_timestamp, o.order_delivered_customer_date)) AS avg_delivery_duration_days FROM orders o WHERE o.order_purchase_timestamp IS NOT NULL AND o.order_delivered_customer_date IS NOT NULL GROUP BY DATE_TRUNC('month', o.order_purchase_timestamp) ORDER BY purchase_month",
+        "python_columns": [
+          "purchase_month",
+          "avg_delivery_duration_days"
+        ],
+        "status": "success",
+        "error": null
+      },
+      "sql_result": {
+        "executed_sql": "SELECT DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month, AVG(DATEDIFF('day', o.order_purchase_timestamp, o.order_delivered_customer_date)) AS avg_delivery_duration_days FROM orders o WHERE o.order_purchase_timestamp IS NOT NULL AND o.order_delivered_customer_date IS NOT NULL GROUP BY DATE_TRUNC('month', o.order_purchase_timestamp) ORDER BY purchase_month",
+        "columns": [
+          "purchase_month",
+          "avg_delivery_duration_days"
+        ],
+        "rows": [
+          [
+            "2016-09-01 00:00:00",
+            55.0
+          ],
+          [
+            "2016-10-01 00:00:00",
+            19.61111111111111
+          ],
+          [
+            "2016-12-01 00:00:00",
+            5.0
+          ],
+          [
+            "2017-01-01 00:00:00",
+            12.753333333333334
+          ],
+          [
+            "2017-02-01 00:00:00",
+            13.300060496067756
+          ],
+          [
+            "2017-03-01 00:00:00",
+            13.044383346425766
+          ],
+          [
+            "2017-04-01 00:00:00",
+            15.02301346070343
+          ],
+          [
+            "2017-05-01 00:00:00",
+            11.427080394922426
+          ],
+          [
+            "2017-06-01 00:00:00",
+            12.012759170653908
+          ],
+          [
+            "2017-07-01 00:00:00",
+            11.488894628099173
+          ],
+          [
+            "2017-08-01 00:00:00",
+            11.016455998092058
+          ],
+          [
+            "2017-09-01 00:00:00",
+            11.722650602409638
+          ],
+          [
+            "2017-10-01 00:00:00",
+            11.733139794551139
+          ],
+          [
+            "2017-11-01 00:00:00",
+            15.073133918770582
+          ],
+          [
+            "2017-12-01 00:00:00",
+            15.30564121168148
+          ],
+          [
+            "2018-01-01 00:00:00",
+            14.005799971707455
+          ],
+          [
+            "2018-02-01 00:00:00",
+            16.875381330079318
+          ],
+          [
+            "2018-03-01 00:00:00",
+            16.23761245180637
+          ],
+          [
+            "2018-04-01 00:00:00",
+            11.419388055310385
+          ],
+          [
+            "2018-05-01 00:00:00",
+            11.336494295451178
+          ],
+          [
+            "2018-06-01 00:00:00",
+            9.164534120734908
+          ],
+          [
+            "2018-07-01 00:00:00",
+            8.887751786874594
+          ],
+          [
+            "2018-08-01 00:00:00",
+            7.658164068650606
+          ]
+        ],
+        "returned_row_count": 23,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": {
+        "operation": "calculate_growth",
+        "status": "success",
+        "result": {
+          "points": [
+            {
+              "period": "2016-09-01 00:00:00",
+              "value": 55.0,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2016-10-01 00:00:00",
+              "value": 19.61111111111111,
+              "previous_value": 55.0,
+              "absolute_change": -35.388888888888886,
+              "growth_rate": -0.6434343434343434
+            },
+            {
+              "period": "2016-12-01 00:00:00",
+              "value": 5.0,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2017-01-01 00:00:00",
+              "value": 12.753333333333334,
+              "previous_value": 5.0,
+              "absolute_change": 7.753333333333334,
+              "growth_rate": 1.5506666666666669
+            },
+            {
+              "period": "2017-02-01 00:00:00",
+              "value": 13.300060496067756,
+              "previous_value": 12.753333333333334,
+              "absolute_change": 0.5467271627344221,
+              "growth_rate": 0.042869354108815115
+            },
+            {
+              "period": "2017-03-01 00:00:00",
+              "value": 13.044383346425766,
+              "previous_value": 13.300060496067756,
+              "absolute_change": -0.25567714964198984,
+              "growth_rate": -0.01922375839700747
+            },
+            {
+              "period": "2017-04-01 00:00:00",
+              "value": 15.02301346070343,
+              "previous_value": 13.044383346425766,
+              "absolute_change": 1.9786301142776637,
+              "growth_rate": 0.15168445006024905
+            },
+            {
+              "period": "2017-05-01 00:00:00",
+              "value": 11.427080394922426,
+              "previous_value": 15.02301346070343,
+              "absolute_change": -3.5959330657810042,
+              "growth_rate": -0.23936163507987898
+            },
+            {
+              "period": "2017-06-01 00:00:00",
+              "value": 12.012759170653908,
+              "previous_value": 11.427080394922426,
+              "absolute_change": 0.5856787757314823,
+              "growth_rate": 0.05125357969755128
+            },
+            {
+              "period": "2017-07-01 00:00:00",
+              "value": 11.488894628099173,
+              "previous_value": 12.012759170653908,
+              "absolute_change": -0.523864542554735,
+              "growth_rate": -0.04360901064548843
+            },
+            {
+              "period": "2017-08-01 00:00:00",
+              "value": 11.016455998092058,
+              "previous_value": 11.488894628099173,
+              "absolute_change": -0.4724386300071153,
+              "growth_rate": -0.04112133023238284
+            },
+            {
+              "period": "2017-09-01 00:00:00",
+              "value": 11.722650602409638,
+              "previous_value": 11.016455998092058,
+              "absolute_change": 0.7061946043175809,
+              "growth_rate": 0.06410361049323729
+            },
+            {
+              "period": "2017-10-01 00:00:00",
+              "value": 11.733139794551139,
+              "previous_value": 11.722650602409638,
+              "absolute_change": 0.01048919214150068,
+              "growth_rate": 0.0008947799006604005
+            },
+            {
+              "period": "2017-11-01 00:00:00",
+              "value": 15.073133918770582,
+              "previous_value": 11.733139794551139,
+              "absolute_change": 3.3399941242194426,
+              "growth_rate": 0.2846632855913413
+            },
+            {
+              "period": "2017-12-01 00:00:00",
+              "value": 15.30564121168148,
+              "previous_value": 15.073133918770582,
+              "absolute_change": 0.2325072929108991,
+              "growth_rate": 0.015425278788331977
+            },
+            {
+              "period": "2018-01-01 00:00:00",
+              "value": 14.005799971707455,
+              "previous_value": 15.30564121168148,
+              "absolute_change": -1.2998412399740253,
+              "growth_rate": -0.08492563114454611
+            },
+            {
+              "period": "2018-02-01 00:00:00",
+              "value": 16.875381330079318,
+              "previous_value": 14.005799971707455,
+              "absolute_change": 2.869581358371862,
+              "growth_rate": 0.20488521642238117
+            },
+            {
+              "period": "2018-03-01 00:00:00",
+              "value": 16.23761245180637,
+              "previous_value": 16.875381330079318,
+              "absolute_change": -0.6377688782729471,
+              "growth_rate": -0.03779285728709216
+            },
+            {
+              "period": "2018-04-01 00:00:00",
+              "value": 11.419388055310385,
+              "previous_value": 16.23761245180637,
+              "absolute_change": -4.818224396495985,
+              "growth_rate": -0.29673231891674917
+            },
+            {
+              "period": "2018-05-01 00:00:00",
+              "value": 11.336494295451178,
+              "previous_value": 11.419388055310385,
+              "absolute_change": -0.082893759859207,
+              "growth_rate": -0.007259036951691882
+            },
+            {
+              "period": "2018-06-01 00:00:00",
+              "value": 9.164534120734908,
+              "previous_value": 11.336494295451178,
+              "absolute_change": -2.1719601747162702,
+              "growth_rate": -0.1915901087329775
+            },
+            {
+              "period": "2018-07-01 00:00:00",
+              "value": 8.887751786874594,
+              "previous_value": 9.164534120734908,
+              "absolute_change": -0.27678233386031437,
+              "growth_rate": -0.03020146253087648
+            },
+            {
+              "period": "2018-08-01 00:00:00",
+              "value": 7.658164068650606,
+              "previous_value": 8.887751786874594,
+              "absolute_change": -1.2295877182239874,
+              "growth_rate": -0.13834631611110462
+            }
+          ],
+          "period_count": 23
+        },
+        "error": null
+      },
+      "error": null
+    },
+    {
+      "question": "Across review records linked to delivered orders, how did the average review score change from one purchase month to the next?",
+      "route_decision": {
+        "question": "Across review records linked to delivered orders, how did the average review score change from one purchase month to the next?",
+        "route": "sql_then_python",
+        "python_operation": "calculate_growth",
+        "reason": "The question asks how the average review score changed from one purchase month to the next, which is explicit month-over-month change requiring period-over-period growth calculation.",
+        "status": "success",
+        "error": null
+      },
+      "status": "success",
+      "sql_answer_result": null,
+      "analysis_plan": {
+        "question": "Across review records linked to delivered orders, how did the average review score change from one purchase month to the next?",
+        "python_operation": "calculate_growth",
+        "sql": "WITH delivered_reviews AS (SELECT r.review_score, DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month FROM order_reviews r INNER JOIN orders o ON r.order_id = o.order_id WHERE o.order_status = 'delivered') SELECT purchase_month, AVG(review_score) AS avg_review_score FROM delivered_reviews GROUP BY purchase_month ORDER BY purchase_month;",
+        "python_columns": [
+          "purchase_month",
+          "avg_review_score"
+        ],
+        "status": "success",
+        "error": null
+      },
+      "sql_result": {
+        "executed_sql": "WITH delivered_reviews AS (SELECT r.review_score, DATE_TRUNC('month', o.order_purchase_timestamp) AS purchase_month FROM order_reviews r INNER JOIN orders o ON r.order_id = o.order_id WHERE o.order_status = 'delivered') SELECT purchase_month, AVG(review_score) AS avg_review_score FROM delivered_reviews GROUP BY purchase_month ORDER BY purchase_month;",
+        "columns": [
+          "purchase_month",
+          "avg_review_score"
+        ],
+        "rows": [
+          [
+            "2016-09-01 00:00:00",
+            1.0
+          ],
+          [
+            "2016-10-01 00:00:00",
+            4.018939393939394
+          ],
+          [
+            "2016-12-01 00:00:00",
+            5.0
+          ],
+          [
+            "2017-01-01 00:00:00",
+            4.205882352941177
+          ],
+          [
+            "2017-02-01 00:00:00",
+            4.20351302241066
+          ],
+          [
+            "2017-03-01 00:00:00",
+            4.184500393391031
+          ],
+          [
+            "2017-04-01 00:00:00",
+            4.1363240418118465
+          ],
+          [
+            "2017-05-01 00:00:00",
+            4.2377602701181765
+          ],
+          [
+            "2017-06-01 00:00:00",
+            4.222469764481223
+          ],
+          [
+            "2017-07-01 00:00:00",
+            4.253735188047398
+          ],
+          [
+            "2017-08-01 00:00:00",
+            4.309246493938674
+          ],
+          [
+            "2017-09-01 00:00:00",
+            4.267857142857143
+          ],
+          [
+            "2017-10-01 00:00:00",
+            4.2051855163164955
+          ],
+          [
+            "2017-11-01 00:00:00",
+            3.989026063100137
+          ],
+          [
+            "2017-12-01 00:00:00",
+            4.090577729178057
+          ],
+          [
+            "2018-01-01 00:00:00",
+            4.108322699560471
+          ],
+          [
+            "2018-02-01 00:00:00",
+            3.8831740251858595
+          ],
+          [
+            "2018-03-01 00:00:00",
+            3.812195820211852
+          ],
+          [
+            "2018-04-01 00:00:00",
+            4.205530090196659
+          ],
+          [
+            "2018-05-01 00:00:00",
+            4.235809806835067
+          ],
+          [
+            "2018-06-01 00:00:00",
+            4.307515211313929
+          ],
+          [
+            "2018-07-01 00:00:00",
+            4.3191142950179096
+          ],
+          [
+            "2018-08-01 00:00:00",
+            4.310486418193304
+          ]
+        ],
+        "returned_row_count": 23,
+        "truncated": false,
+        "status": "success",
+        "error": null
+      },
+      "python_result": {
+        "operation": "calculate_growth",
+        "status": "success",
+        "result": {
+          "points": [
+            {
+              "period": "2016-09-01 00:00:00",
+              "value": 1.0,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2016-10-01 00:00:00",
+              "value": 4.018939393939394,
+              "previous_value": 1.0,
+              "absolute_change": 3.0189393939393936,
+              "growth_rate": 3.0189393939393936
+            },
+            {
+              "period": "2016-12-01 00:00:00",
+              "value": 5.0,
+              "previous_value": null,
+              "absolute_change": null,
+              "growth_rate": null
+            },
+            {
+              "period": "2017-01-01 00:00:00",
+              "value": 4.205882352941177,
+              "previous_value": 5.0,
+              "absolute_change": -0.7941176470588234,
+              "growth_rate": -0.15882352941176467
+            },
+            {
+              "period": "2017-02-01 00:00:00",
+              "value": 4.20351302241066,
+              "previous_value": 4.205882352941177,
+              "absolute_change": -0.002369330530516578,
+              "growth_rate": -0.0005633373289340116
+            },
+            {
+              "period": "2017-03-01 00:00:00",
+              "value": 4.184500393391031,
+              "previous_value": 4.20351302241066,
+              "absolute_change": -0.0190126290196293,
+              "growth_rate": -0.004523033214900285
+            },
+            {
+              "period": "2017-04-01 00:00:00",
+              "value": 4.1363240418118465,
+              "previous_value": 4.184500393391031,
+              "absolute_change": -0.04817635157918421,
+              "growth_rate": -0.011513047448931677
+            },
+            {
+              "period": "2017-05-01 00:00:00",
+              "value": 4.2377602701181765,
+              "previous_value": 4.1363240418118465,
+              "absolute_change": 0.10143622830632992,
+              "growth_rate": 0.024523278950335212
+            },
+            {
+              "period": "2017-06-01 00:00:00",
+              "value": 4.222469764481223,
+              "previous_value": 4.2377602701181765,
+              "absolute_change": -0.015290505636953888,
+              "growth_rate": -0.0036081572959122316
+            },
+            {
+              "period": "2017-07-01 00:00:00",
+              "value": 4.253735188047398,
+              "previous_value": 4.222469764481223,
+              "absolute_change": 0.03126542356617534,
+              "growth_rate": 0.007404534623119237
+            },
+            {
+              "period": "2017-08-01 00:00:00",
+              "value": 4.309246493938674,
+              "previous_value": 4.253735188047398,
+              "absolute_change": 0.05551130589127595,
+              "growth_rate": 0.013050014501903547
+            },
+            {
+              "period": "2017-09-01 00:00:00",
+              "value": 4.267857142857143,
+              "previous_value": 4.309246493938674,
+              "absolute_change": -0.041389351081530634,
+              "growth_rate": -0.009604776876827148
+            },
+            {
+              "period": "2017-10-01 00:00:00",
+              "value": 4.2051855163164955,
+              "previous_value": 4.267857142857143,
+              "absolute_change": -0.06267162654064773,
+              "growth_rate": -0.014684565214545073
+            },
+            {
+              "period": "2017-11-01 00:00:00",
+              "value": 3.989026063100137,
+              "previous_value": 4.2051855163164955,
+              "absolute_change": -0.21615945321635843,
+              "growth_rate": -0.051403071844902073
+            },
+            {
+              "period": "2017-12-01 00:00:00",
+              "value": 4.090577729178057,
+              "previous_value": 3.989026063100137,
+              "absolute_change": 0.1015516660779201,
+              "growth_rate": 0.025457759481019172
+            },
+            {
+              "period": "2018-01-01 00:00:00",
+              "value": 4.108322699560471,
+              "previous_value": 4.090577729178057,
+              "absolute_change": 0.01774497038241396,
+              "growth_rate": 0.004338010803666982
+            },
+            {
+              "period": "2018-02-01 00:00:00",
+              "value": 3.8831740251858595,
+              "previous_value": 4.108322699560471,
+              "absolute_change": -0.2251486743746116,
+              "growth_rate": -0.0548030646177573
+            },
+            {
+              "period": "2018-03-01 00:00:00",
+              "value": 3.812195820211852,
+              "previous_value": 3.8831740251858595,
+              "absolute_change": -0.07097820497400731,
+              "growth_rate": -0.018278399194486292
+            },
+            {
+              "period": "2018-04-01 00:00:00",
+              "value": 4.205530090196659,
+              "previous_value": 3.812195820211852,
+              "absolute_change": 0.39333426998480636,
+              "growth_rate": 0.10317787661887419
+            },
+            {
+              "period": "2018-05-01 00:00:00",
+              "value": 4.235809806835067,
+              "previous_value": 4.205530090196659,
+              "absolute_change": 0.03027971663840834,
+              "growth_rate": 0.007199976219167273
+            },
+            {
+              "period": "2018-06-01 00:00:00",
+              "value": 4.307515211313929,
+              "previous_value": 4.235809806835067,
+              "absolute_change": 0.07170540447886165,
+              "growth_rate": 0.016928381525335493
+            },
+            {
+              "period": "2018-07-01 00:00:00",
+              "value": 4.3191142950179096,
+              "previous_value": 4.307515211313929,
+              "absolute_change": 0.011599083703980995,
+              "growth_rate": 0.002692755134912897
+            },
+            {
+              "period": "2018-08-01 00:00:00",
+              "value": 4.310486418193304,
+              "previous_value": 4.3191142950179096,
+              "absolute_change": -0.00862787682460553,
+              "growth_rate": -0.0019976032666136597
+            }
+          ],
+          "period_count": 23
+        },
+        "error": null
+      },
+      "error": null
+    },
+    {
+      "question": "How many units of each product were in inventory at the end of 2017?",
+      "route_decision": {
+        "question": "How many units of each product were in inventory at the end of 2017?",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "The query asks for a direct aggregation of inventory counts by product at a specific date, which DuckDB can compute natively with SQL.",
+        "status": "success",
+        "error": null
+      },
+      "status": "sql_generation_error",
+      "sql_answer_result": {
+        "question": "How many units of each product were in inventory at the end of 2017?",
+        "generated_sql": null,
+        "status": "generation_error",
+        "execution_result": null,
+        "generation_error": {
+          "code": "cannot_generate",
+          "message": "The schema does not include an inventory table or any stock/quantity-on-hand data, so units of each product in inventory at the end of 2017 cannot be determined."
+        },
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": null,
+      "python_result": null,
+      "error": {
+        "code": "sql_generation_error",
+        "message": "The schema does not include an inventory table or any stock/quantity-on-hand data, so units of each product in inventory at the end of 2017 cannot be determined."
+      }
+    },
+    {
+      "question": "Which customer acquisition channel generated the highest total payment value?",
+      "route_decision": {
+        "question": "Which customer acquisition channel generated the highest total payment value?",
+        "route": "sql_only",
+        "python_operation": null,
+        "reason": "This is a SQL-native aggregation: sum payment value by acquisition channel and rank, requiring no post-processing.",
+        "status": "success",
+        "error": null
+      },
+      "status": "sql_generation_error",
+      "sql_answer_result": {
+        "question": "Which customer acquisition channel generated the highest total payment value?",
+        "generated_sql": null,
+        "status": "generation_error",
+        "execution_result": null,
+        "generation_error": {
+          "code": "cannot_generate",
+          "message": "The schema has no customer acquisition channel dimension; cannot compute this metric reliably."
+        },
+        "execution_error": null,
+        "repaired_sql": null,
+        "repair_attempted": false,
+        "repair_error": null
+      },
+      "analysis_plan": null,
+      "sql_result": null,
+      "python_result": null,
+      "error": {
+        "code": "sql_generation_error",
+        "message": "The schema has no customer acquisition channel dimension; cannot compute this metric reliably."
+      }
+    },
+    {
+      "question": "Forecast the total number of orders for each of the next six months.",
+      "route_decision": {
+        "question": "Forecast the total number of orders for each of the next six months.",
+        "route": null,
+        "python_operation": null,
+        "reason": null,
+        "status": "error",
+        "error": {
+          "code": "unsupported_route",
+          "message": "Reason no supported route can fulfill the request."
+        }
+      },
+      "status": "routing_error",
+      "sql_answer_result": null,
+      "analysis_plan": null,
+      "sql_result": null,
+      "python_result": null,
+      "error": {
+        "code": "routing_error",
+        "message": "Reason no supported route can fulfill the request."
+      }
+    },
+    {
+      "question": "Cluster sellers into behavioral segments using their item volume, transaction value, and freight patterns.",
+      "route_decision": {
+        "question": "Cluster sellers into behavioral segments using their item volume, transaction value, and freight patterns.",
+        "route": null,
+        "python_operation": null,
+        "reason": null,
+        "status": "error",
+        "error": {
+          "code": "unsupported_route",
+          "message": "Clustering requires machine learning, which is unsupported."
+        }
+      },
+      "status": "routing_error",
+      "sql_answer_result": null,
+      "analysis_plan": null,
+      "sql_result": null,
+      "python_result": null,
+      "error": {
+        "code": "routing_error",
+        "message": "Clustering requires machine learning, which is unsupported."
+      }
+    }
+  ],
+  "evaluations": [
+    {
+      "question_id": "MTQ-001",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-002",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-003",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-004",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-005",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-006",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-007",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-008",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-009",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-010",
+      "category": "sql_only",
+      "expected_disposition": "answer",
+      "actual_disposition": "unknown",
+      "disposition_correct": false,
+      "expected_route": "sql_only",
+      "actual_route": "sql_only",
+      "route_correct": true,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": true,
+      "semantic_correct": false,
+      "passed": false,
+      "failure_reason": "disposition mismatch: expected answer, got unknown"
+    },
+    {
+      "question_id": "MTQ-011",
+      "category": "calculate_growth",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_then_python",
+      "actual_route": "sql_then_python",
+      "route_correct": true,
+      "expected_python_operation": "calculate_growth",
+      "actual_python_operation": "calculate_growth",
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-012",
+      "category": "calculate_growth",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_then_python",
+      "actual_route": "sql_then_python",
+      "route_correct": true,
+      "expected_python_operation": "calculate_growth",
+      "actual_python_operation": "calculate_growth",
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-013",
+      "category": "calculate_growth",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_then_python",
+      "actual_route": "sql_then_python",
+      "route_correct": true,
+      "expected_python_operation": "calculate_growth",
+      "actual_python_operation": "calculate_growth",
+      "operation_correct": true,
+      "semantic_correct": false,
+      "passed": false,
+      "failure_reason": "growth point mismatch at period 2016-09-01 00:00:00: value"
+    },
+    {
+      "question_id": "MTQ-014",
+      "category": "calculate_growth",
+      "expected_disposition": "answer",
+      "actual_disposition": "answer",
+      "disposition_correct": true,
+      "expected_route": "sql_then_python",
+      "actual_route": "sql_then_python",
+      "route_correct": true,
+      "expected_python_operation": "calculate_growth",
+      "actual_python_operation": "calculate_growth",
+      "operation_correct": true,
+      "semantic_correct": true,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-015",
+      "category": "data_unanswerable",
+      "expected_disposition": "reject",
+      "actual_disposition": "reject",
+      "disposition_correct": true,
+      "expected_route": null,
+      "actual_route": "sql_only",
+      "route_correct": null,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": null,
+      "semantic_correct": null,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-016",
+      "category": "data_unanswerable",
+      "expected_disposition": "reject",
+      "actual_disposition": "reject",
+      "disposition_correct": true,
+      "expected_route": null,
+      "actual_route": "sql_only",
+      "route_correct": null,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": null,
+      "semantic_correct": null,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-017",
+      "category": "capability_unsupported",
+      "expected_disposition": "reject",
+      "actual_disposition": "reject",
+      "disposition_correct": true,
+      "expected_route": null,
+      "actual_route": null,
+      "route_correct": null,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": null,
+      "semantic_correct": null,
+      "passed": true,
+      "failure_reason": null
+    },
+    {
+      "question_id": "MTQ-018",
+      "category": "capability_unsupported",
+      "expected_disposition": "reject",
+      "actual_disposition": "reject",
+      "disposition_correct": true,
+      "expected_route": null,
+      "actual_route": null,
+      "route_correct": null,
+      "expected_python_operation": null,
+      "actual_python_operation": null,
+      "operation_correct": null,
+      "semantic_correct": null,
+      "passed": true,
+      "failure_reason": null
+    }
+  ],
+  "summary": {
+    "total": 18,
+    "passed": 16,
+    "failed": 2,
+    "disposition_correct": 17,
+    "disposition_accuracy": 0.9444444444444444,
+    "route_evaluated": 14,
+    "route_correct": 14,
+    "route_accuracy": 1.0,
+    "operation_evaluated": 14,
+    "operation_correct": 14,
+    "operation_accuracy": 1.0,
+    "semantic_evaluated": 14,
+    "semantic_correct": 12,
+    "semantic_accuracy": 0.8571428571428571,
+    "sql_only_passed": 9,
+    "sql_only_total": 10,
+    "calculate_growth_passed": 3,
+    "calculate_growth_total": 4,
+    "data_unanswerable_passed": 2,
+    "data_unanswerable_total": 2,
+    "capability_unsupported_passed": 2,
+    "capability_unsupported_total": 2
+  },
+  "run_failures": []
+}
