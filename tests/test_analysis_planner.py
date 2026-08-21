@@ -500,6 +500,18 @@ def test_prompt_contains_grounding_and_sql_python_contract(operation: str) -> No
     assert "exactly one read-only SELECT or WITH ... SELECT" in prompt
 
 
+def test_prompt_preserves_chinese_question_verbatim() -> None:
+    question = "商品成交金额每个月的环比变化怎么样？"
+
+    prompt = build_python_analysis_plan_prompt(
+        question,
+        SCHEMA,
+        "calculate_growth",
+    )
+
+    assert question in prompt
+
+
 def test_calculate_growth_prompt_defines_sql_python_boundary() -> None:
     prompt = build_python_analysis_plan_prompt(
         "How did total item transaction value change month over month?",

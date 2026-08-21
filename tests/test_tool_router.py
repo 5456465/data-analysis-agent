@@ -120,6 +120,12 @@ def test_prompt_contains_question_and_explicit_tool_boundaries() -> None:
     assert "Do not generate SQL" in prompt
 
 
+def test_prompt_preserves_chinese_question_verbatim() -> None:
+    question = "商品成交金额每个月的环比变化怎么样？"
+
+    assert question in build_tool_routing_prompt(question)
+
+
 def test_prompt_contains_minimal_policy_examples() -> None:
     prompt = build_tool_routing_prompt("Route this question.")
 

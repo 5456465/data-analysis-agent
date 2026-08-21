@@ -73,7 +73,7 @@ def test_successful_validated_result_returns_successful_synthesis(
     monkeypatch.setattr(
         service_module,
         "synthesize_answer",
-        lambda result: synthesis,
+        lambda result, locale="en": synthesis,
     )
 
     final = answer_question_for_user("database.duckdb", "question", object())
@@ -98,7 +98,11 @@ def test_invalid_validation_flows_to_blocked_synthesis(
         lambda *args, **kwargs: validated,
     )
 
-    def fake_synthesize(result: ValidatedQuestionResult) -> AnswerSynthesis:
+    def fake_synthesize(
+        result: ValidatedQuestionResult,
+        locale: str = "en",
+    ) -> AnswerSynthesis:
+        assert locale == "en"
         received.append(result)
         return synthesis
 
@@ -126,7 +130,7 @@ def test_valid_with_warnings_preserves_synthesis_warnings(
     monkeypatch.setattr(
         service_module,
         "synthesize_answer",
-        lambda result: synthesis,
+        lambda result, locale="en": synthesis,
     )
 
     final = answer_question_for_user("database.duckdb", "question", object())
@@ -147,10 +151,14 @@ def test_validation_service_and_synthesis_are_each_called_once(
         validation_calls += 1
         return validated
 
-    def fake_synthesis(result: ValidatedQuestionResult) -> AnswerSynthesis:
+    def fake_synthesis(
+        result: ValidatedQuestionResult,
+        locale: str = "en",
+    ) -> AnswerSynthesis:
         nonlocal synthesis_calls
         synthesis_calls += 1
         assert result is validated
+        assert locale == "en"
         return AnswerSynthesis("success", "Result: 1", ())
 
     monkeypatch.setattr(
@@ -186,7 +194,7 @@ def test_all_parameters_are_forwarded_transparently(
     monkeypatch.setattr(
         service_module,
         "synthesize_answer",
-        lambda result: AnswerSynthesis("success", "Result: 1", ()),
+        lambda result, locale="en": AnswerSynthesis("success", "Result: 1", ()),
     )
 
     answer_question_for_user(
@@ -223,7 +231,7 @@ def test_existing_default_limits_are_forwarded(
     monkeypatch.setattr(
         service_module,
         "synthesize_answer",
-        lambda result: AnswerSynthesis("success", "Result: 1", ()),
+        lambda result, locale="en": AnswerSynthesis("success", "Result: 1", ()),
     )
 
     answer_question_for_user("database.duckdb", "question", object())
@@ -262,7 +270,7 @@ def test_wrapper_does_not_modify_input_or_synthesis(
     monkeypatch.setattr(
         service_module,
         "synthesize_answer",
-        lambda result: synthesis,
+        lambda result, locale="en": synthesis,
     )
 
     final = answer_question_for_user("database.duckdb", "question", object())
@@ -301,7 +309,7 @@ def test_wrapper_does_not_make_an_additional_model_call(
     monkeypatch.setattr(
         service_module,
         "synthesize_answer",
-        lambda result: AnswerSynthesis("success", "Result: 1", ()),
+        lambda result, locale="en": AnswerSynthesis("success", "Result: 1", ()),
     )
 
     answer_question_for_user("database.duckdb", "question", model)
@@ -331,7 +339,7 @@ def test_wrapper_does_not_execute_sql_or_python_itself(
     monkeypatch.setattr(
         service_module,
         "synthesize_answer",
-        lambda result: AnswerSynthesis("success", "Result: 1", ()),
+        lambda result, locale="en": AnswerSynthesis("success", "Result: 1", ()),
     )
 
     final = answer_question_for_user("database.duckdb", "question", object())
@@ -353,3 +361,37 @@ def test_programming_exception_is_not_swallowed(
 
     with pytest.raises(RuntimeError, match="programming error"):
         answer_question_for_user("database.duckdb", "question", object())
+
+
+def test_zh_locale_is_passed_only_to_synthesis_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validated = _validated_result()
+    validation_calls: list[dict[str, object]] = []
+    synthesis_calls: list[tuple[ValidatedQuestionResult, str]] = []
+
+    def validate(*args: object, **kwargs: object) -> ValidatedQuestionResult:
+        validation_calls.append(kwargs)
+        return validated
+
+    def synthesize(
+        result: ValidatedQuestionResult,
+        locale: str = "en",
+    ) -> AnswerSynthesis:
+        synthesis_calls.append((result, locale))
+        return AnswerSynthesis("success", "结果：1", ())
+
+    monkeypatch.setattr(service_module, "answer_question_with_validation", validate)
+    monkeypatch.setattr(service_module, "synthesize_answer", synthesize)
+
+    final = answer_question_for_user(
+        "database.duckdb",
+        "问题",
+        object(),
+        locale="zh-CN",
+    )
+
+    assert len(validation_calls) == 1
+    assert "locale" not in validation_calls[0]
+    assert synthesis_calls == [(validated, "zh-CN")]
+    assert final.synthesis.answer == "结果：1"

@@ -5,16 +5,34 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from data_analysis_agent.execution_trace import ExecutionTrace
 from data_analysis_agent.final_answer_service import FinalAnswerResult
 from data_analysis_agent.python_analysis import GrowthPeriod, GrowthResult
 
 
 DEFAULT_DATABASE_PATH = Path("data/processed/olist.duckdb")
 EXAMPLE_QUESTIONS = (
-    "How many orders were canceled in 2017?",
-    "What are the top 5 product categories by total item transaction value?",
-    "How did total item transaction value change month over month?",
+    "2017 年取消了多少订单？",
+    "商品成交金额最高的前 5 个商品类别是什么？",
+    "商品成交金额每个月的环比变化怎么样？",
 )
+
+_TRACE_STAGE_LABELS = {
+    "routing": "路由判断",
+    "planning": "分析规划",
+    "sql_generation": "SQL 生成",
+    "sql_repair": "SQL 修复",
+    "sql_execution": "SQL 执行",
+    "python_analysis": "Python 分析",
+    "validation": "结果校验",
+    "answer_synthesis": "答案生成",
+}
+_TRACE_STATUS_LABELS = {
+    "success": "成功",
+    "warning": "警告",
+    "error": "失败",
+    "skipped": "跳过",
+}
 
 
 @dataclass(frozen=True)
@@ -54,21 +72,44 @@ def build_status_summary(final_result: FinalAnswerResult) -> StatusSummary:
     result = final_result.validated_result.result
     route = result.route_decision.route
     route_label = {
-        "sql_only": "SQL only",
+        "sql_only": "仅 SQL",
         "sql_then_python": "SQL → Python",
         None: "N/A",
     }.get(route, str(route))
     validation = final_result.validated_result.validation.status
     validation_label = {
-        "valid": "Valid",
-        "valid_with_warnings": "Warning",
-        "invalid": "Invalid",
+        "valid": "通过",
+        "valid_with_warnings": "有警告",
+        "invalid": "未通过",
     }[validation]
+    operation = result.route_decision.python_operation
+    tool_label = {
+        "calculate_growth": "环比计算",
+        "describe": "描述性统计",
+        "correlation": "相关性分析",
+        None: "SQL",
+    }.get(operation, str(operation))
     return StatusSummary(
         route=route_label,
         validation=validation_label,
-        tool=result.route_decision.python_operation or "SQL",
+        tool=tool_label,
     )
+
+
+def format_execution_trace_for_display(trace: ExecutionTrace) -> str:
+    """Format trace stage/status labels in Chinese without changing its contract."""
+
+    if not isinstance(trace, ExecutionTrace):
+        raise TypeError("trace must be an ExecutionTrace instance.")
+
+    blocks: list[str] = []
+    for step in trace.steps:
+        stage = _TRACE_STAGE_LABELS.get(step.stage, step.stage)
+        status = _TRACE_STATUS_LABELS.get(step.status, step.status)
+        lines = [f"{stage} [{status}]", f"  summary: {step.summary}"]
+        lines.extend(f"  {key}: {value}" for key, value in step.details)
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks) + "\n"
 
 
 def extract_growth_chart_data(

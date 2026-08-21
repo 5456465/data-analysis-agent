@@ -30,7 +30,7 @@ class HealthResponse(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    """One English natural-language analysis question."""
+    """One natural-language analysis question."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -105,6 +105,7 @@ def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
             DEFAULT_DATABASE_PATH,
             request.question,
             model,
+            locale="zh-CN",
         )
         return _build_analyze_response(final_result)
     except HTTPException:

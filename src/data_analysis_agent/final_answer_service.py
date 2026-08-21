@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from data_analysis_agent.answer_synthesis import AnswerSynthesis, synthesize_answer
+from data_analysis_agent.answer_synthesis import (
+    AnswerSynthesis,
+    Locale,
+    synthesize_answer,
+)
 from data_analysis_agent.multi_tool_service import ANALYSIS_MAX_ROWS
 from data_analysis_agent.schema import DatabaseSchema
 from data_analysis_agent.sql_executor import DEFAULT_MAX_ROWS
@@ -32,6 +36,7 @@ def answer_question_for_user(
     *,
     analysis_max_rows: int = ANALYSIS_MAX_ROWS,
     schema: DatabaseSchema | None = None,
+    locale: Locale = "en",
 ) -> FinalAnswerResult:
     """Execute and validate once, then synthesize once from that result."""
 
@@ -43,7 +48,7 @@ def answer_question_for_user(
         analysis_max_rows=analysis_max_rows,
         schema=schema,
     )
-    synthesis = synthesize_answer(validated_result)
+    synthesis = synthesize_answer(validated_result, locale=locale)
     return FinalAnswerResult(
         validated_result=validated_result,
         synthesis=synthesis,

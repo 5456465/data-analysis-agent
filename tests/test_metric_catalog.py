@@ -200,6 +200,8 @@ def test_sql_generator_prompt_contains_delivery_duration_v2_context() -> None:
     assert "DATE_DIFF('second'" in prompt
     assert "/ 86400.0" in prompt
     assert "Do not use DATEDIFF('day', start, end)" in prompt
+    assert "平均配送时长" in prompt
+    assert "平均配送天数" in prompt
 
 
 def test_analysis_planner_prompt_contains_delivery_duration_v2_context() -> None:
@@ -212,6 +214,8 @@ def test_analysis_planner_prompt_contains_delivery_duration_v2_context() -> None
     assert "METRIC average_delivery_duration_days" in prompt
     assert "DATE_DIFF('second'" in prompt
     assert "Do not automatically add order_status = 'delivered'" in prompt
+    assert "平均配送时长" in prompt
+    assert "订单平均配送时间" in prompt
 
 
 def test_formatter_excludes_secrets_and_runtime_information() -> None:
@@ -221,3 +225,60 @@ def test_formatter_excludes_secrets_and_runtime_information() -> None:
     assert "deepseek" not in context
     assert "prompt secret" not in context
     assert "runtime" not in context
+
+
+def test_metric_chinese_labels_are_canonical_and_identifiers_are_unchanged() -> None:
+    assert tuple(
+        (metric.identifier, metric.zh_label) for metric in METRIC_DEFINITIONS_V2
+    ) == (
+        ("average_review_score", "平均评论分"),
+        ("average_items_per_order", "每单平均商品数"),
+        ("average_delivery_duration_days", "平均配送时长"),
+    )
+
+
+def test_metric_chinese_aliases_are_stable_unique_and_non_empty() -> None:
+    aliases = tuple(metric.zh_aliases for metric in METRIC_DEFINITIONS_V2)
+
+    assert aliases == (
+        ("平均评分", "平均评价分", "评论平均分"),
+        ("平均每单商品数", "每单商品数", "平均订单商品数"),
+        ("平均送达时长", "平均配送天数", "订单平均配送时间"),
+    )
+    assert all(alias.strip() for group in aliases for alias in group)
+    assert all(len(group) == len(set(group)) for group in aliases)
+
+
+def test_top_bottom_constraint_contains_chinese_terminology() -> None:
+    constraint = QUERY_CONSTRAINTS_V2[0]
+
+    assert constraint.identifier == "explicit_top_bottom_n"
+    assert constraint.zh_label == "前 N 名或后 N 名排名"
+    assert constraint.zh_aliases == (
+        "前 N 名",
+        "Top N",
+        "后 N 名",
+        "Bottom N",
+        "排名前 N",
+        "排名后 N",
+    )
+
+
+def test_formatter_contains_compact_chinese_vocabulary() -> None:
+    context = format_semantic_layer_context()
+
+    assert "Chinese label: 平均评论分" in context
+    assert "Chinese aliases: 平均评分, 平均评价分, 评论平均分" in context
+    assert "Chinese label: 前 N 名或后 N 名排名" in context
+    assert "Chinese aliases: 前 N 名, Top N, 后 N 名, Bottom N, 排名前 N, 排名后 N" in context
+
+
+def test_chinese_vocabulary_does_not_change_canonical_english_semantics() -> None:
+    review = _metric("average_review_score")
+    items = _metric("average_items_per_order")
+    delivery = _metric("average_delivery_duration_days")
+
+    assert review.aggregation == "AVG(review_score) at review-record grain."
+    assert items.population.startswith("All orders")
+    assert "DATE_DIFF('second'" in delivery.aggregation
+    assert "/ 86400.0" in delivery.aggregation

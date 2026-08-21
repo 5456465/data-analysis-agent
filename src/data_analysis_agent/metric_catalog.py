@@ -15,6 +15,8 @@ class MetricDefinition:
 
     identifier: str
     label: str
+    zh_label: str
+    zh_aliases: tuple[str, ...]
     definition: str
     grain: str
     population: str
@@ -30,6 +32,8 @@ class QueryConstraintDefinition:
 
     identifier: str
     label: str
+    zh_label: str
+    zh_aliases: tuple[str, ...]
     definition: str
     instructions: tuple[str, ...]
 
@@ -50,6 +54,8 @@ METRIC_DEFINITIONS_V2: tuple[MetricDefinition, ...] = (
     MetricDefinition(
         identifier="average_review_score",
         label="Average review score",
+        zh_label="平均评论分",
+        zh_aliases=("平均评分", "平均评价分", "评论平均分"),
         definition=(
             "Average of review_score across individual order_reviews review records."
         ),
@@ -78,6 +84,8 @@ METRIC_DEFINITIONS_V2: tuple[MetricDefinition, ...] = (
     MetricDefinition(
         identifier="average_items_per_order",
         label="Average items per order",
+        zh_label="每单平均商品数",
+        zh_aliases=("平均每单商品数", "每单商品数", "平均订单商品数"),
         definition=(
             "Total number of matching order-item records divided by the total "
             "number of orders."
@@ -105,6 +113,8 @@ METRIC_DEFINITIONS_V2: tuple[MetricDefinition, ...] = (
     MetricDefinition(
         identifier="average_delivery_duration_days",
         label="Average delivery duration in days",
+        zh_label="平均配送时长",
+        zh_aliases=("平均送达时长", "平均配送天数", "订单平均配送时间"),
         definition=(
             "Average exact elapsed delivery duration in days across eligible orders."
         ),
@@ -145,6 +155,8 @@ QUERY_CONSTRAINTS_V2: tuple[QueryConstraintDefinition, ...] = (
     QueryConstraintDefinition(
         identifier="explicit_top_bottom_n",
         label="Explicit Top-N or Bottom-N ranking",
+        zh_label="前 N 名或后 N 名排名",
+        zh_aliases=("前 N 名", "Top N", "后 N 名", "Bottom N", "排名前 N", "排名后 N"),
         definition=(
             "A ranking request with an explicit N returns only the requested N rows."
         ),
@@ -241,6 +253,8 @@ def _format_semantics(semantics: tuple[SemanticDefinition, ...]) -> str:
             lines = [
                 f"METRIC {semantic.identifier}",
                 f"Label: {semantic.label}",
+                f"Chinese label: {semantic.zh_label}",
+                f"Chinese aliases: {', '.join(semantic.zh_aliases)}",
                 f"Definition: {semantic.definition}",
                 f"Grain: {semantic.grain}",
                 f"Population: {semantic.population}",
@@ -253,6 +267,8 @@ def _format_semantics(semantics: tuple[SemanticDefinition, ...]) -> str:
             lines = [
                 f"QUERY CONSTRAINT {semantic.identifier}",
                 f"Label: {semantic.label}",
+                f"Chinese label: {semantic.zh_label}",
+                f"Chinese aliases: {', '.join(semantic.zh_aliases)}",
                 f"Definition: {semantic.definition}",
                 "Instructions:",
             ]

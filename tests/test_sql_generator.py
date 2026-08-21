@@ -84,6 +84,12 @@ def test_prompt_contains_question_and_real_schema_names_and_columns() -> None:
     assert "SELECT or WITH ... SELECT" in prompt
 
 
+def test_prompt_preserves_chinese_question_verbatim() -> None:
+    question = "商品成交金额每个月的环比变化怎么样？"
+
+    assert question in build_text_to_sql_prompt(question, SCHEMA)
+
+
 def test_prompt_contains_deterministic_business_semantics_context() -> None:
     prompt = build_text_to_sql_prompt(
         "What is the average review score?",

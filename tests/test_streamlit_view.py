@@ -5,6 +5,7 @@ from pathlib import Path
 from data_analysis_agent.analysis_planner import PythonAnalysisPlan
 from data_analysis_agent.answer_synthesis import AnswerSynthesis
 from data_analysis_agent.final_answer_service import FinalAnswerResult
+from data_analysis_agent.execution_trace import ExecutionTrace, TraceStep
 from data_analysis_agent.multi_tool_service import MultiToolQuestionResult
 from data_analysis_agent.python_analysis import (
     CorrelationResult,
@@ -21,6 +22,7 @@ from data_analysis_agent.streamlit_view import (
     build_status_summary,
     extract_analysis_details,
     extract_growth_chart_data,
+    format_execution_trace_for_display,
     synthesis_is_blocked,
     synthesis_warnings,
 )
@@ -47,6 +49,7 @@ def _final_result(
     blocked: bool = False,
     warnings: tuple[str, ...] = (),
     validation_status: str = "valid",
+    operation: str = "calculate_growth",
     python_payload: object | None = None,
 ) -> FinalAnswerResult:
     sql_result = _sql_result()
@@ -68,7 +71,7 @@ def _final_result(
     plan = (
         PythonAnalysisPlan(
             question="test question",
-            python_operation="calculate_growth",
+            python_operation=operation,
             sql="SELECT month, value FROM facts ORDER BY month",
             python_columns=("month", "value"),
             status="success",
@@ -82,7 +85,7 @@ def _final_result(
         route_decision=ToolRouteDecision(
             question="test question",
             route=route,
-            python_operation="calculate_growth" if plan is not None else None,
+            python_operation=operation if plan is not None else None,
             reason="test",
             status="success",
             error=None,
@@ -93,7 +96,7 @@ def _final_result(
         sql_result=sql_result,
         python_result=(
             PythonAnalysisResult(
-                operation="calculate_growth",
+                operation=operation,
                 status="success",
                 result=python_payload,
                 error=None,
@@ -192,7 +195,7 @@ def test_helpers_do_not_modify_final_result() -> None:
 def test_sql_only_status_summary_uses_sql_labels() -> None:
     summary = build_status_summary(_final_result())
 
-    assert summary.route == "SQL only"
+    assert summary.route == "仅 SQL"
     assert summary.tool == "SQL"
 
 
@@ -200,23 +203,63 @@ def test_sql_then_python_status_summary_uses_operation() -> None:
     summary = build_status_summary(_final_result(route="sql_then_python"))
 
     assert summary.route == "SQL → Python"
-    assert summary.tool == "calculate_growth"
+    assert summary.tool == "环比计算"
 
 
 def test_valid_status_maps_to_valid() -> None:
-    assert build_status_summary(_final_result()).validation == "Valid"
+    assert build_status_summary(_final_result()).validation == "通过"
 
 
 def test_valid_with_warnings_status_maps_to_warning() -> None:
     final = _final_result(validation_status="valid_with_warnings")
 
-    assert build_status_summary(final).validation == "Warning"
+    assert build_status_summary(final).validation == "有警告"
 
 
 def test_invalid_status_maps_to_invalid() -> None:
     final = _final_result(validation_status="invalid", blocked=True)
 
-    assert build_status_summary(final).validation == "Invalid"
+    assert build_status_summary(final).validation == "未通过"
+
+
+def test_python_operations_map_to_chinese_display_labels() -> None:
+    assert build_status_summary(
+        _final_result(route="sql_then_python", operation="describe")
+    ).tool == "描述性统计"
+    assert build_status_summary(
+        _final_result(route="sql_then_python", operation="correlation")
+    ).tool == "相关性分析"
+
+
+def test_trace_display_localizes_stage_and_status_only() -> None:
+    trace = ExecutionTrace(
+        question="test question",
+        route="sql_then_python",
+        python_operation="calculate_growth",
+        steps=(
+            TraceStep(
+                stage="routing",
+                status="success",
+                summary="Routing completed.",
+                details=(("route", "sql_then_python"),),
+            ),
+            TraceStep(
+                stage="python_analysis",
+                status="warning",
+                summary="Python analysis completed with a warning.",
+                details=(("python_operation", "calculate_growth"),),
+            ),
+        ),
+    )
+    before = repr(trace)
+
+    display = format_execution_trace_for_display(trace)
+
+    assert "路由判断 [成功]" in display
+    assert "Python 分析 [警告]" in display
+    assert "route: sql_then_python" in display
+    assert "python_operation: calculate_growth" in display
+    assert repr(trace) == before
 
 
 def test_missing_route_maps_to_na() -> None:
@@ -326,9 +369,9 @@ def test_example_question_count_is_fixed_at_three() -> None:
 
 def test_examples_cover_simple_sql_ranking_and_growth() -> None:
     assert EXAMPLE_QUESTIONS == (
-        "How many orders were canceled in 2017?",
-        "What are the top 5 product categories by total item transaction value?",
-        "How did total item transaction value change month over month?",
+        "2017 年取消了多少订单？",
+        "商品成交金额最高的前 5 个商品类别是什么？",
+        "商品成交金额每个月的环比变化怎么样？",
     )
 
 

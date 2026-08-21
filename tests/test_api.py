@@ -35,6 +35,7 @@ from data_analysis_agent.validated_question_service import ValidatedQuestionResu
 
 
 QUESTION = "How many orders are in the dataset?"
+CHINESE_QUESTION = "商品成交金额每个月的环比变化怎么样？"
 
 
 def _fake_model(prompt: str) -> dict[str, object]:
@@ -58,6 +59,7 @@ def _final_result(
     route: str = "sql_only",
     warnings: tuple[str, ...] = (),
     repaired: bool = False,
+    answer: str = "Result: 99441",
 ) -> FinalAnswerResult:
     sql_result = _sql_result()
     sql_answer = (
@@ -132,7 +134,7 @@ def _final_result(
     )
     return FinalAnswerResult(
         validated_result=ValidatedQuestionResult(result, validation),
-        synthesis=AnswerSynthesis("success", "Result: 99441", warnings),
+        synthesis=AnswerSynthesis("success", answer, warnings),
     )
 
 
@@ -278,8 +280,8 @@ def test_normalized_question_is_passed_to_product_entry_once(
     calls: list[tuple[object, ...]] = []
     monkeypatch.setattr(api_module, "create_model", lambda: _fake_model)
 
-    def answer(database_path, question, model):
-        calls.append((database_path, question, model))
+    def answer(database_path, question, model, *, locale="en"):
+        calls.append((database_path, question, model, locale))
         return _final_result()
 
     monkeypatch.setattr(api_module, "answer_question_for_user", answer)
@@ -287,7 +289,64 @@ def test_normalized_question_is_passed_to_product_entry_once(
     response = client.post("/analyze", json={"question": f"  {QUESTION}  "})
 
     assert response.status_code == 200
-    assert calls == [(api_module.DEFAULT_DATABASE_PATH, QUESTION, _fake_model)]
+    assert calls == [
+        (api_module.DEFAULT_DATABASE_PATH, QUESTION, _fake_model, "zh-CN")
+    ]
+
+
+def test_chinese_question_is_passed_unchanged_with_zh_locale(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[object, ...]] = []
+    monkeypatch.setattr(api_module, "create_model", lambda: _fake_model)
+
+    def answer(database_path, question, model, *, locale="en"):
+        calls.append((database_path, question, model, locale))
+        return _final_result(answer="结果：99441")
+
+    monkeypatch.setattr(api_module, "answer_question_for_user", answer)
+
+    response = client.post("/analyze", json={"question": CHINESE_QUESTION})
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "结果：99441"
+    assert calls == [
+        (
+            api_module.DEFAULT_DATABASE_PATH,
+            CHINESE_QUESTION,
+            _fake_model,
+            "zh-CN",
+        )
+    ]
+
+
+def test_chinese_answer_keeps_english_machine_contract(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure_result(
+        monkeypatch,
+        _final_result(route="sql_then_python", answer="时间点数量：1"),
+    )
+
+    body = client.post("/analyze", json={"question": CHINESE_QUESTION}).json()
+
+    assert set(body) == {
+        "status",
+        "answer",
+        "route",
+        "validation",
+        "analysis_tool",
+        "warnings",
+        "evidence",
+    }
+    assert body["answer"] == "时间点数量：1"
+    assert body["route"] == "sql_then_python"
+    assert body["validation"] == "valid"
+    assert body["analysis_tool"] == "calculate_growth"
+    assert body["evidence"]["trace"][0]["stage"] == "routing"
+    assert body["evidence"]["trace"][0]["status"] == "success"
 
 
 def test_api_does_not_call_core_tools_directly(
@@ -344,10 +403,18 @@ def test_request_rejects_api_key_and_route_override_fields(
             "question": QUESTION,
             "api_key": "secret",
             "route": "sql_only",
+            "locale": "zh-CN",
         },
     )
 
     assert response.status_code == 422
+
+
+def test_request_contract_requires_only_question() -> None:
+    schema = api_module.AnalyzeRequest.model_json_schema()
+
+    assert schema["required"] == ["question"]
+    assert set(schema["properties"]) == {"question"}
 
 
 def test_response_excludes_secrets_prompts_and_held_out_metadata(

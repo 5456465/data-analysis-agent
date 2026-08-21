@@ -366,3 +366,141 @@ def test_answer_does_not_expose_internal_metadata() -> None:
     assert "internal router reason" not in answer
     assert "Prompt" not in answer
     assert ".env" not in answer
+
+
+def test_default_locale_remains_english() -> None:
+    answer = synthesize_answer(_validated(_multi_tool_result())).answer
+
+    assert answer == "Result: 99441"
+
+
+def test_zh_sql_scalar_uses_chinese_result_label() -> None:
+    synthesis = synthesize_answer(
+        _validated(_multi_tool_result()),
+        locale="zh-CN",
+    )
+
+    assert synthesis.answer == "结果：99441"
+
+
+def test_zh_describe_uses_chinese_labels_and_english_column_identifier() -> None:
+    descriptions = (
+        ColumnDescription("payment_value", 4, 12.5, 2.5, 9.0, 12.0, 17.0),
+    )
+    result = _multi_tool_result(
+        route="sql_then_python",
+        operation="describe",
+        python_payload=descriptions,
+    )
+
+    answer = synthesize_answer(_validated(result), locale="zh-CN").answer
+
+    assert answer.splitlines() == [
+        "列：payment_value",
+        "样本数：4",
+        "均值：12.5",
+        "样本标准差：2.5",
+        "最小值：9.0",
+        "中位数：12.0",
+        "最大值：17.0",
+    ]
+
+
+def test_zh_correlation_uses_chinese_labels_without_interpretation() -> None:
+    result = _multi_tool_result(
+        route="sql_then_python",
+        operation="correlation",
+        python_payload=CorrelationResult("price", "freight", 0.414, 1000),
+    )
+
+    answer = synthesize_answer(_validated(result), locale="zh-CN").answer
+
+    assert answer == "皮尔逊相关系数：0.414\n配对样本数：1000"
+    assert "强" not in answer
+    assert "弱" not in answer
+
+
+def test_zh_growth_uses_chinese_header_and_period_count() -> None:
+    result = _multi_tool_result(
+        route="sql_then_python",
+        operation="calculate_growth",
+        python_payload=_growth_result(),
+    )
+
+    lines = synthesize_answer(_validated(result), locale="zh-CN").answer.splitlines()
+
+    assert lines[0] == "时间 | 当前值 | 上期值 | 绝对变化 | 环比变化率"
+    assert lines[-1] == "时间点数量：3"
+
+
+def test_zh_growth_preserves_null_and_raw_ratio() -> None:
+    result = _multi_tool_result(
+        route="sql_then_python",
+        operation="calculate_growth",
+        python_payload=_growth_result(),
+    )
+
+    answer = synthesize_answer(_validated(result), locale="zh-CN").answer
+
+    assert "2020-01 | 10.0 | NULL | NULL | NULL" in answer
+    assert "2020-02 | 15.0 | 10.0 | 5.0 | 0.5" in answer
+    assert "%" not in answer
+
+
+def test_zh_invalid_validation_uses_chinese_blocked_message() -> None:
+    result = _multi_tool_result(status="sql_execution_error")
+    validated = _validated(
+        result,
+        status="invalid",
+        issues=(ValidationIssue("unsuccessful_pipeline", "error", "Failed."),),
+    )
+
+    synthesis = synthesize_answer(validated, locale="zh-CN")
+
+    assert synthesis.status == "blocked"
+    assert "结果未通过有效性校验，暂时无法生成可靠答案。" in synthesis.answer
+    assert "阶段：sql_execution_error" in synthesis.answer
+    assert "错误：sql_execution_error: query failed" in synthesis.answer
+
+
+def test_zh_unsupported_payload_uses_chinese_message() -> None:
+    result = _multi_tool_result(
+        route="sql_then_python",
+        operation="unknown",
+        python_payload=object(),
+    )
+
+    synthesis = synthesize_answer(_validated(result), locale="zh-CN")
+
+    assert synthesis.status == "blocked"
+    assert synthesis.answer == "暂不支持该结果类型的答案展示。"
+
+
+def test_zh_empty_result_warning_uses_chinese_mapping() -> None:
+    warning = ValidationIssue("empty_result", "warning", "SQLResult contains no rows.")
+    result = _multi_tool_result(sql_result=_sql_result(("state",), ()))
+
+    synthesis = synthesize_answer(
+        _validated(result, status="valid_with_warnings", issues=(warning,)),
+        locale="zh-CN",
+    )
+
+    assert synthesis.warnings == ("查询结果为空。",)
+    assert warning.code == "empty_result"
+
+
+def test_locales_change_only_presentation_not_structured_values() -> None:
+    result = _multi_tool_result(
+        route="sql_then_python",
+        operation="calculate_growth",
+        python_payload=_growth_result(),
+    )
+    validated = _validated(result)
+    before = repr(validated)
+
+    english = synthesize_answer(validated)
+    chinese = synthesize_answer(validated, locale="zh-CN")
+
+    assert repr(validated) == before
+    assert "2020-02 | 15.0 | 10.0 | 5.0 | 0.5" in english.answer
+    assert "2020-02 | 15.0 | 10.0 | 5.0 | 0.5" in chinese.answer
