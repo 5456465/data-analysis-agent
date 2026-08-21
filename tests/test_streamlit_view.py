@@ -6,12 +6,21 @@ from data_analysis_agent.analysis_planner import PythonAnalysisPlan
 from data_analysis_agent.answer_synthesis import AnswerSynthesis
 from data_analysis_agent.final_answer_service import FinalAnswerResult
 from data_analysis_agent.multi_tool_service import MultiToolQuestionResult
+from data_analysis_agent.python_analysis import (
+    CorrelationResult,
+    GrowthPoint,
+    GrowthResult,
+    PythonAnalysisResult,
+)
 from data_analysis_agent.question_service import QuestionAnswerResult
-from data_analysis_agent.result_validation import ResultValidation
+from data_analysis_agent.result_validation import ResultValidation, ValidationIssue
 from data_analysis_agent.sql_executor import SQLResult
 from data_analysis_agent.streamlit_view import (
     DEFAULT_DATABASE_PATH,
+    EXAMPLE_QUESTIONS,
+    build_status_summary,
     extract_analysis_details,
+    extract_growth_chart_data,
     synthesis_is_blocked,
     synthesis_warnings,
 )
@@ -37,6 +46,8 @@ def _final_result(
     repaired: bool = False,
     blocked: bool = False,
     warnings: tuple[str, ...] = (),
+    validation_status: str = "valid",
+    python_payload: object | None = None,
 ) -> FinalAnswerResult:
     sql_result = _sql_result()
     sql_answer = (
@@ -80,13 +91,31 @@ def _final_result(
         sql_answer_result=sql_answer,
         analysis_plan=plan,
         sql_result=sql_result,
-        python_result=None,
+        python_result=(
+            PythonAnalysisResult(
+                operation="calculate_growth",
+                status="success",
+                result=python_payload,
+                error=None,
+            )
+            if python_payload is not None
+            else None
+        ),
         error=None,
     )
     return FinalAnswerResult(
         validated_result=ValidatedQuestionResult(
             result=result,
-            validation=ResultValidation("valid", ()),
+            validation=ResultValidation(
+                validation_status,
+                (
+                    ValidationIssue("test", "warning", "Test warning.")
+                    if validation_status == "valid_with_warnings"
+                    else ValidationIssue("test", "error", "Test error.")
+                ,)
+                if validation_status != "valid"
+                else (),
+            ),
         ),
         synthesis=AnswerSynthesis(
             "blocked" if blocked else "success",
@@ -154,5 +183,155 @@ def test_helpers_do_not_modify_final_result() -> None:
     extract_analysis_details(final)
     synthesis_is_blocked(final)
     synthesis_warnings(final)
+    build_status_summary(final)
+    extract_growth_chart_data(final)
 
     assert repr(final) == before
+
+
+def test_sql_only_status_summary_uses_sql_labels() -> None:
+    summary = build_status_summary(_final_result())
+
+    assert summary.route == "SQL only"
+    assert summary.tool == "SQL"
+
+
+def test_sql_then_python_status_summary_uses_operation() -> None:
+    summary = build_status_summary(_final_result(route="sql_then_python"))
+
+    assert summary.route == "SQL → Python"
+    assert summary.tool == "calculate_growth"
+
+
+def test_valid_status_maps_to_valid() -> None:
+    assert build_status_summary(_final_result()).validation == "Valid"
+
+
+def test_valid_with_warnings_status_maps_to_warning() -> None:
+    final = _final_result(validation_status="valid_with_warnings")
+
+    assert build_status_summary(final).validation == "Warning"
+
+
+def test_invalid_status_maps_to_invalid() -> None:
+    final = _final_result(validation_status="invalid", blocked=True)
+
+    assert build_status_summary(final).validation == "Invalid"
+
+
+def test_missing_route_maps_to_na() -> None:
+    final = _final_result()
+    result = final.validated_result.result
+    missing_route = ToolRouteDecision(
+        question=result.route_decision.question,
+        route=None,
+        python_operation=None,
+        reason=None,
+        status="error",
+        error=result.route_decision.error,
+    )
+    final = FinalAnswerResult(
+        validated_result=ValidatedQuestionResult(
+            result=MultiToolQuestionResult(
+                question=result.question,
+                route_decision=missing_route,
+                status=result.status,
+                sql_answer_result=result.sql_answer_result,
+                analysis_plan=result.analysis_plan,
+                sql_result=result.sql_result,
+                python_result=result.python_result,
+                error=result.error,
+            ),
+            validation=final.validated_result.validation,
+        ),
+        synthesis=final.synthesis,
+    )
+
+    assert build_status_summary(final).route == "N/A"
+
+
+def _growth_result(*points: GrowthPoint) -> GrowthResult:
+    return GrowthResult(points=points, period_count=len(points))
+
+
+def test_growth_chart_extracts_periods_and_values() -> None:
+    payload = _growth_result(
+        GrowthPoint("2017-01", 10.0, None, None, None),
+        GrowthPoint("2017-02", 12.5, 10.0, 2.5, 0.25),
+    )
+
+    chart = extract_growth_chart_data(
+        _final_result(route="sql_then_python", python_payload=payload)
+    )
+
+    assert chart is not None
+    assert chart.periods == ("2017-01", "2017-02")
+    assert chart.values == (10.0, 12.5)
+
+
+def test_growth_chart_preserves_point_order() -> None:
+    payload = _growth_result(
+        GrowthPoint("2017-03", 30.0, 20.0, 10.0, 0.5),
+        GrowthPoint("2017-01", 10.0, None, None, None),
+    )
+
+    chart = extract_growth_chart_data(
+        _final_result(route="sql_then_python", python_payload=payload)
+    )
+
+    assert chart is not None
+    assert chart.periods == ("2017-03", "2017-01")
+    assert chart.values == (30.0, 10.0)
+
+
+def test_growth_chart_does_not_include_growth_fields() -> None:
+    payload = _growth_result(
+        GrowthPoint("2017-02", 12.5, 10.0, 2.5, 0.25),
+    )
+
+    chart = extract_growth_chart_data(
+        _final_result(route="sql_then_python", python_payload=payload)
+    )
+
+    assert chart is not None
+    assert not hasattr(chart, "growth_rate")
+    assert repr(chart) == "GrowthChartData(periods=('2017-02',), values=(12.5,))"
+
+
+def test_non_growth_payload_has_no_chart_data() -> None:
+    payload = CorrelationResult("price", "freight", 0.4, 10)
+
+    assert (
+        extract_growth_chart_data(
+            _final_result(route="sql_then_python", python_payload=payload)
+        )
+        is None
+    )
+
+
+def test_empty_growth_payload_has_no_chart_data() -> None:
+    payload = _growth_result()
+
+    assert (
+        extract_growth_chart_data(
+            _final_result(route="sql_then_python", python_payload=payload)
+        )
+        is None
+    )
+
+
+def test_example_question_count_is_fixed_at_three() -> None:
+    assert len(EXAMPLE_QUESTIONS) == 3
+
+
+def test_examples_cover_simple_sql_ranking_and_growth() -> None:
+    assert EXAMPLE_QUESTIONS == (
+        "How many orders were canceled in 2017?",
+        "What are the top 5 product categories by total item transaction value?",
+        "How did total item transaction value change month over month?",
+    )
+
+
+def test_examples_are_inert_text_values() -> None:
+    assert all(isinstance(question, str) for question in EXAMPLE_QUESTIONS)
+    assert all(question.strip() for question in EXAMPLE_QUESTIONS)
