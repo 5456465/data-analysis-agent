@@ -287,23 +287,34 @@ milestone complete, run the full test suite.
 ### Windows Codex pytest rule
 
 On Windows, when Codex runs pytest inside its sandbox, do not use the default
-pytest temporary directory or pytest cache. Codex must use:
+pytest temporary directory or pytest cache. Every independent pytest invocation
+must use a new, unique, repository-external basetemp and disable the pytest
+cache provider. For example, in Windows CMD, use:
 
 ```text
-python -m pytest --basetemp="%USERPROFILE%\codex-pytest-temp" -p no:cacheprovider
+python -m pytest --basetemp="%USERPROFILE%\codex-pytest-%RANDOM%-%RANDOM%" -p no:cacheprovider
 ```
 
 For targeted tests, keep the same flags, for example:
 
 ```text
-python -m pytest tests/test_example.py --basetemp="%USERPROFILE%\codex-pytest-temp" -p no:cacheprovider
+python -m pytest tests/test_example.py --basetemp="%USERPROFILE%\codex-pytest-%RANDOM%-%RANDOM%" -p no:cacheprovider
 ```
 
-This workaround applies only when Codex itself runs pytest on Windows. Do not
-change the `pyproject.toml` pytest defaults, application code, or test code to
-work around this Codex Windows sandbox ACL issue. Do not treat the workaround
-command as the canonical developer command. In a normal developer shell, the
-canonical test command remains:
+This workaround applies only when Codex itself runs pytest in a Windows
+sandbox. Codex must not reuse a basetemp directory created by any previous
+pytest invocation. If `%RANDOM%` is unavailable in the current execution shell,
+use an equivalent unique repository-external directory, such as one containing
+a UUID or GUID. The invariant is: repository external, unique per pytest
+invocation, and never a previously used Codex pytest temporary directory.
+
+Do not change the `pyproject.toml` pytest defaults, application code, test code,
+or the normal developer testing workflow to work around this Codex Windows
+sandbox ACL issue. Old Codex basetemp directories do not need to be deleted
+automatically; their cleanup is local environment maintenance and must not
+become part of project test logic. Do not treat the workaround command as the
+canonical developer command. In a normal developer shell, the canonical test
+command remains:
 
 ```text
 python -m pytest
