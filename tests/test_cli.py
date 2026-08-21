@@ -15,6 +15,8 @@ from data_analysis_agent.multi_tool_service import (
 from data_analysis_agent.python_analysis import (
     ColumnDescription,
     CorrelationResult,
+    GrowthPoint,
+    GrowthResult,
     PythonAnalysisResult,
 )
 from data_analysis_agent.question_service import QuestionAnswerResult
@@ -288,6 +290,81 @@ def test_correlation_prints_columns_value_and_paired_rows(
     assert "Python columns: price, freight_value" in rendered
     assert "Correlation: 0.4142043104" in rendered
     assert "Paired rows: 112650" in rendered
+
+
+def test_calculate_growth_prints_structured_growth_table(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    sql = (
+        "SELECT month, total_item_transaction_value "
+        "FROM monthly_item_values ORDER BY month"
+    )
+    python_result = PythonAnalysisResult(
+        operation="calculate_growth",
+        status="success",
+        result=GrowthResult(
+            points=(
+                GrowthPoint("2016-09", 267.36, None, None, None),
+                GrowthPoint(
+                    "2016-10",
+                    49_507.66,
+                    267.36,
+                    49_240.3,
+                    184.17227707959307,
+                ),
+                GrowthPoint("2016-12", 10.9, None, None, None),
+            ),
+            period_count=3,
+        ),
+        error=None,
+    )
+    result = _python_success_result(
+        "calculate_growth",
+        sql,
+        ("month", "total_item_transaction_value"),
+        python_result,
+    )
+
+    rendered = _run_one_result(monkeypatch, tmp_path, result)
+
+    assert "Route: SQL → Python" in rendered
+    assert "Python analysis: calculate_growth" in rendered
+    assert f"SQL:\n{sql}" in rendered
+    assert "Python columns: month, total_item_transaction_value" in rendered
+    assert "Growth result:" in rendered
+    assert "Period | Value | Previous | Absolute Change | Growth Rate" in rendered
+    assert "2016-09 | 267.36 | NULL | NULL | NULL" in rendered
+    assert (
+        "2016-10 | 49507.66 | 267.36 | 49240.3 | 184.17227707959307"
+        in rendered
+    )
+    assert "2016-12 | 10.9 | NULL | NULL | NULL" in rendered
+    assert "Period count: 3" in rendered
+    assert "20%" not in rendered
+
+
+def test_unknown_python_result_type_prints_controlled_error(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    python_result = PythonAnalysisResult(
+        operation="future_operation",
+        status="success",
+        result=object(),
+        error=None,
+    )
+    result = _python_success_result(
+        "future_operation",
+        ANALYSIS_SQL,
+        ("payment_value",),
+        python_result,
+    )
+
+    rendered = _run_one_result(monkeypatch, tmp_path, result)
+
+    assert "Error stage: python_analysis_error" in rendered
+    assert "Error: Unsupported Python analysis result type: object" in rendered
 
 
 @pytest.mark.parametrize(

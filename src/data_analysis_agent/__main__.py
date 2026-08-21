@@ -10,7 +10,11 @@ from data_analysis_agent.multi_tool_service import (
     MultiToolQuestionResult,
     answer_question_with_tools,
 )
-from data_analysis_agent.python_analysis import ColumnDescription, CorrelationResult
+from data_analysis_agent.python_analysis import (
+    ColumnDescription,
+    CorrelationResult,
+    GrowthResult,
+)
 from data_analysis_agent.sql_executor import SQLResult
 from data_analysis_agent.sql_generator import TextToSQLModel
 
@@ -97,6 +101,28 @@ def _print_descriptions(
         output_fn(f"Max: {description.max}")
 
 
+def _print_growth_result(
+    growth_result: GrowthResult,
+    output_fn: OutputFunction,
+) -> None:
+    output_fn("Growth result:")
+    output_fn("Period | Value | Previous | Absolute Change | Growth Rate")
+    for point in growth_result.points:
+        values = (
+            point.period,
+            point.value,
+            point.previous_value,
+            point.absolute_change,
+            point.growth_rate,
+        )
+        output_fn(
+            " | ".join(
+                "NULL" if value is None else str(value) for value in values
+            )
+        )
+    output_fn(f"Period count: {growth_result.period_count}")
+
+
 def _print_python_analysis(
     result: MultiToolQuestionResult,
     output_fn: OutputFunction,
@@ -122,11 +148,23 @@ def _print_python_analysis(
         return
 
     payload = python_result.result
-    if isinstance(payload, tuple):
+    if (
+        isinstance(payload, tuple)
+        and payload
+        and all(isinstance(item, ColumnDescription) for item in payload)
+    ):
         _print_descriptions(payload, output_fn)
     elif isinstance(payload, CorrelationResult):
         output_fn(f"Correlation: {payload.correlation}")
         output_fn(f"Paired rows: {payload.paired_count}")
+    elif isinstance(payload, GrowthResult):
+        _print_growth_result(payload, output_fn)
+    else:
+        output_fn("Error stage: python_analysis_error")
+        output_fn(
+            "Error: Unsupported Python analysis result type: "
+            f"{type(payload).__name__}"
+        )
 
 
 def _print_answer(
