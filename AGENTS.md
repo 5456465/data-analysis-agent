@@ -284,6 +284,31 @@ Tests must not depend on private credentials or irreversible external actions.
 After modifying code, run the smallest relevant test set. Before considering a
 milestone complete, run the full test suite.
 
+### Windows Codex pytest rule
+
+On Windows, when Codex runs pytest inside its sandbox, do not use the default
+pytest temporary directory or pytest cache. Codex must use:
+
+```text
+python -m pytest --basetemp="%USERPROFILE%\codex-pytest-temp" -p no:cacheprovider
+```
+
+For targeted tests, keep the same flags, for example:
+
+```text
+python -m pytest tests/test_example.py --basetemp="%USERPROFILE%\codex-pytest-temp" -p no:cacheprovider
+```
+
+This workaround applies only when Codex itself runs pytest on Windows. Do not
+change the `pyproject.toml` pytest defaults, application code, or test code to
+work around this Codex Windows sandbox ACL issue. Do not treat the workaround
+command as the canonical developer command. In a normal developer shell, the
+canonical test command remains:
+
+```text
+python -m pytest
+```
+
 ## 12. Documentation
 
 Use the following maintenance rules instead of updating every document after
