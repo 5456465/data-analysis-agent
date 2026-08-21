@@ -8,12 +8,16 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from data_analysis_agent.deepseek_provider import DeepSeekTextToSQLModel
+from data_analysis_agent.deepseek_provider import (
+    DeepSeekNaturalLanguageModel,
+    DeepSeekTextToSQLModel,
+)
 from data_analysis_agent.execution_trace import build_execution_trace
 from data_analysis_agent.final_answer_service import (
     FinalAnswerResult,
     answer_question_for_user,
 )
+from data_analysis_agent.natural_language_answer import NaturalLanguageModel
 from data_analysis_agent.sql_generator import TextToSQLModel
 
 
@@ -69,6 +73,7 @@ class AnalyzeResponse(BaseModel):
 
     status: Literal["success", "blocked"]
     answer: str
+    natural_language_answer: str | None = None
     route: Literal["sql_only", "sql_then_python"] | None
     validation: Literal["valid", "valid_with_warnings", "invalid"]
     analysis_tool: Literal["describe", "correlation", "calculate_growth"] | None
@@ -80,6 +85,12 @@ def create_model() -> TextToSQLModel:
     """Create the configured provider only while handling an analysis request."""
 
     return DeepSeekTextToSQLModel()
+
+
+def create_natural_language_model() -> NaturalLanguageModel:
+    """Create the plain-text provider only while handling a request."""
+
+    return DeepSeekNaturalLanguageModel()
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -101,11 +112,13 @@ def analyze(request: AnalyzeRequest) -> AnalyzeResponse:
 
     try:
         model = create_model()
+        natural_language_model = create_natural_language_model()
         final_result = answer_question_for_user(
             DEFAULT_DATABASE_PATH,
             request.question,
             model,
             locale="zh-CN",
+            natural_language_model=natural_language_model,
         )
         return _build_analyze_response(final_result)
     except HTTPException:
@@ -123,9 +136,13 @@ def _build_analyze_response(final_result: FinalAnswerResult) -> AnalyzeResponse:
     sql_answer = result.sql_answer_result
     plan = result.analysis_plan
     trace = build_execution_trace(final_result)
+    narrative = final_result.natural_language_answer
     return AnalyzeResponse(
         status=final_result.synthesis.status,
         answer=final_result.synthesis.answer,
+        natural_language_answer=(
+            narrative.answer if narrative is not None else None
+        ),
         route=decision.route,
         validation=final_result.validated_result.validation.status,
         analysis_tool=decision.python_operation,

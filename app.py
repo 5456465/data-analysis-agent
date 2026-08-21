@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import streamlit as st
 
-from data_analysis_agent.deepseek_provider import DeepSeekTextToSQLModel
+from data_analysis_agent.deepseek_provider import (
+    DeepSeekNaturalLanguageModel,
+    DeepSeekTextToSQLModel,
+)
 from data_analysis_agent.execution_trace import build_execution_trace
 from data_analysis_agent.final_answer_service import (
     FinalAnswerResult,
@@ -17,6 +20,7 @@ from data_analysis_agent.streamlit_view import (
     extract_analysis_details,
     extract_growth_chart_data,
     format_execution_trace_for_display,
+    primary_answer_text,
     synthesis_is_blocked,
     synthesis_warnings,
 )
@@ -61,11 +65,13 @@ def main() -> None:
     try:
         with st.spinner("正在分析..."):
             model = DeepSeekTextToSQLModel()
+            natural_language_model = DeepSeekNaturalLanguageModel()
             final_result = answer_question_for_user(
                 DEFAULT_DATABASE_PATH,
                 question.strip(),
                 model,
                 locale="zh-CN",
+                natural_language_model=natural_language_model,
             )
         _render_result(final_result)
     except Exception as exc:
@@ -96,7 +102,9 @@ def _render_result(final_result: FinalAnswerResult) -> None:
     if synthesis_is_blocked(final_result):
         st.error(final_result.synthesis.answer)
     else:
-        st.text(final_result.synthesis.answer)
+        st.write(primary_answer_text(final_result))
+        with st.expander("查看结构化数据"):
+            st.text(final_result.synthesis.answer)
 
     chart_data = extract_growth_chart_data(final_result)
     if chart_data is not None:

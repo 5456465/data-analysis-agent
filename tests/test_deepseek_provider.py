@@ -10,6 +10,7 @@ import data_analysis_agent.deepseek_provider as provider_module
 from data_analysis_agent.deepseek_provider import (
     DEEPSEEK_BASE_URL,
     DEEPSEEK_MODEL,
+    DeepSeekNaturalLanguageModel,
     DeepSeekTextToSQLModel,
 )
 from data_analysis_agent.schema import DatabaseSchema
@@ -104,3 +105,58 @@ def test_provider_exception_becomes_generation_model_error() -> None:
     assert result.error is not None
     assert result.error.code == "model_error"
     assert result.error.message == "DeepSeek unavailable"
+
+
+def test_natural_language_provider_returns_plain_text_without_json_mode() -> None:
+    content = "The dataset contains 99441 orders."
+    completions = FakeCompletions(content=content)
+    model = DeepSeekNaturalLanguageModel(client=FakeClient(completions))
+
+    returned_content = model("Summarize the validated result.")
+
+    assert returned_content == content
+    assert completions.calls == [
+        {
+            "model": DEEPSEEK_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Summarize the validated result.",
+                }
+            ],
+        }
+    ]
+    assert "response_format" not in completions.calls[0]
+
+
+def test_natural_language_provider_reuses_key_and_official_base_url(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    constructor_arguments: dict[str, str] = {}
+
+    class FakeOpenAI:
+        def __init__(self, *, api_key: str, base_url: str):
+            constructor_arguments.update(api_key=api_key, base_url=base_url)
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "unit-test-placeholder")
+    monkeypatch.setattr(provider_module, "OpenAI", FakeOpenAI)
+
+    DeepSeekNaturalLanguageModel(env_path=tmp_path / "missing.env")
+
+    assert constructor_arguments == {
+        "api_key": "unit-test-placeholder",
+        "base_url": DEEPSEEK_BASE_URL,
+    }
+
+
+@pytest.mark.parametrize("content", [None, "", "   "])
+def test_natural_language_provider_rejects_empty_content(
+    content: str | None,
+) -> None:
+    model = DeepSeekNaturalLanguageModel(
+        client=FakeClient(FakeCompletions(content=content))
+    )
+
+    with pytest.raises(ValueError, match="empty response content"):
+        model("Summarize the validated result.")

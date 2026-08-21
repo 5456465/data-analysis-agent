@@ -15,6 +15,7 @@ from data_analysis_agent.multi_tool_service import (
     ANALYSIS_MAX_ROWS,
     MultiToolQuestionResult,
 )
+from data_analysis_agent.natural_language_answer import NaturalLanguageAnswer
 from data_analysis_agent.result_validation import ResultValidation, ValidationIssue
 from data_analysis_agent.schema import DatabaseSchema
 from data_analysis_agent.sql_executor import DEFAULT_MAX_ROWS, SQLResult
@@ -395,3 +396,114 @@ def test_zh_locale_is_passed_only_to_synthesis_once(
     assert "locale" not in validation_calls[0]
     assert synthesis_calls == [(validated, "zh-CN")]
     assert final.synthesis.answer == "结果：1"
+
+
+def test_natural_language_model_defaults_to_none_without_extra_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        service_module,
+        "answer_question_with_validation",
+        lambda *args, **kwargs: _validated_result(),
+    )
+    monkeypatch.setattr(
+        service_module,
+        "synthesize_answer",
+        lambda result, locale="en": AnswerSynthesis("success", "Result: 1", ()),
+    )
+    monkeypatch.setattr(
+        service_module,
+        "generate_natural_language_answer",
+        lambda *args, **kwargs: pytest.fail("narrative must remain opt-in"),
+    )
+
+    final = answer_question_for_user("database.duckdb", "question", object())
+
+    assert final.natural_language_answer is None
+
+
+def test_explicit_narrative_adds_one_call_after_one_validation_and_synthesis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validated = _validated_result()
+    core_model = object()
+    validation_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+    synthesis_calls: list[tuple[ValidatedQuestionResult, str]] = []
+    narrative_prompts: list[str] = []
+
+    def validate(*args: object, **kwargs: object) -> ValidatedQuestionResult:
+        validation_calls.append((args, kwargs))
+        return validated
+
+    def synthesize(
+        result: ValidatedQuestionResult,
+        locale: str = "en",
+    ) -> AnswerSynthesis:
+        synthesis_calls.append((result, locale))
+        return AnswerSynthesis("success", "结果：1", ())
+
+    def narrative_model(prompt: str) -> str:
+        narrative_prompts.append(prompt)
+        return "共有 1 条结果。"
+
+    monkeypatch.setattr(service_module, "answer_question_with_validation", validate)
+    monkeypatch.setattr(service_module, "synthesize_answer", synthesize)
+
+    final = answer_question_for_user(
+        "database.duckdb",
+        "问题",
+        core_model,
+        locale="zh-CN",
+        natural_language_model=narrative_model,
+    )
+
+    assert len(validation_calls) == 1
+    assert validation_calls[0][0] == ("database.duckdb", "问题", core_model)
+    assert "natural_language_model" not in validation_calls[0][1]
+    assert synthesis_calls == [(validated, "zh-CN")]
+    assert len(narrative_prompts) == 1
+    assert final.natural_language_answer == NaturalLanguageAnswer(
+        "success",
+        "共有 1 条结果。",
+        None,
+    )
+    assert final.synthesis.answer == "结果：1"
+
+
+def test_invalid_result_does_not_call_explicit_narrative_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validated = _validated_result(
+        "invalid",
+        (ValidationIssue("failed", "error", "Failed validation."),),
+    )
+    monkeypatch.setattr(
+        service_module,
+        "answer_question_with_validation",
+        lambda *args, **kwargs: validated,
+    )
+    monkeypatch.setattr(
+        service_module,
+        "synthesize_answer",
+        lambda result, locale="en": AnswerSynthesis(
+            "blocked",
+            "无法生成可靠答案。",
+            (),
+        ),
+    )
+
+    final = answer_question_for_user(
+        "database.duckdb",
+        "问题",
+        object(),
+        locale="zh-CN",
+        natural_language_model=lambda prompt: pytest.fail(
+            "invalid result must not call narrative model"
+        ),
+    )
+
+    assert final.natural_language_answer == NaturalLanguageAnswer(
+        "skipped",
+        None,
+        None,
+    )

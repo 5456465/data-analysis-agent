@@ -19,6 +19,7 @@ from data_analysis_agent.multi_tool_service import (
     MultiToolQuestionError,
     MultiToolQuestionResult,
 )
+from data_analysis_agent.natural_language_answer import NaturalLanguageAnswer
 from data_analysis_agent.python_analysis import (
     GrowthPoint,
     GrowthResult,
@@ -42,6 +43,10 @@ def _fake_model(prompt: str) -> dict[str, object]:
     raise AssertionError(f"Unexpected model call: {prompt}")
 
 
+def _fake_narrative_model(prompt: str) -> str:
+    return "共有 99441 个订单。"
+
+
 def _sql_result() -> SQLResult:
     return SQLResult(
         executed_sql="SELECT COUNT(*) AS order_count FROM orders",
@@ -60,6 +65,7 @@ def _final_result(
     warnings: tuple[str, ...] = (),
     repaired: bool = False,
     answer: str = "Result: 99441",
+    natural_language_answer: NaturalLanguageAnswer | None = None,
 ) -> FinalAnswerResult:
     sql_result = _sql_result()
     sql_answer = (
@@ -135,6 +141,7 @@ def _final_result(
     return FinalAnswerResult(
         validated_result=ValidatedQuestionResult(result, validation),
         synthesis=AnswerSynthesis("success", answer, warnings),
+        natural_language_answer=natural_language_answer,
     )
 
 
@@ -182,6 +189,11 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
     database_path = tmp_path / "olist.duckdb"
     database_path.touch()
     monkeypatch.setattr(api_module, "DEFAULT_DATABASE_PATH", database_path)
+    monkeypatch.setattr(
+        api_module,
+        "create_natural_language_model",
+        lambda: _fake_narrative_model,
+    )
     return TestClient(api_module.app, raise_server_exceptions=False)
 
 
@@ -206,6 +218,7 @@ def test_health_returns_stable_json_without_agent_calls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(api_module, "create_model", _unexpected)
+    monkeypatch.setattr(api_module, "create_natural_language_model", _unexpected)
     monkeypatch.setattr(api_module, "answer_question_for_user", _unexpected)
 
     response = client.get("/health")
@@ -280,8 +293,17 @@ def test_normalized_question_is_passed_to_product_entry_once(
     calls: list[tuple[object, ...]] = []
     monkeypatch.setattr(api_module, "create_model", lambda: _fake_model)
 
-    def answer(database_path, question, model, *, locale="en"):
-        calls.append((database_path, question, model, locale))
+    def answer(
+        database_path,
+        question,
+        model,
+        *,
+        locale="en",
+        natural_language_model=None,
+    ):
+        calls.append(
+            (database_path, question, model, locale, natural_language_model)
+        )
         return _final_result()
 
     monkeypatch.setattr(api_module, "answer_question_for_user", answer)
@@ -290,7 +312,13 @@ def test_normalized_question_is_passed_to_product_entry_once(
 
     assert response.status_code == 200
     assert calls == [
-        (api_module.DEFAULT_DATABASE_PATH, QUESTION, _fake_model, "zh-CN")
+        (
+            api_module.DEFAULT_DATABASE_PATH,
+            QUESTION,
+            _fake_model,
+            "zh-CN",
+            _fake_narrative_model,
+        )
     ]
 
 
@@ -301,8 +329,17 @@ def test_chinese_question_is_passed_unchanged_with_zh_locale(
     calls: list[tuple[object, ...]] = []
     monkeypatch.setattr(api_module, "create_model", lambda: _fake_model)
 
-    def answer(database_path, question, model, *, locale="en"):
-        calls.append((database_path, question, model, locale))
+    def answer(
+        database_path,
+        question,
+        model,
+        *,
+        locale="en",
+        natural_language_model=None,
+    ):
+        calls.append(
+            (database_path, question, model, locale, natural_language_model)
+        )
         return _final_result(answer="结果：99441")
 
     monkeypatch.setattr(api_module, "answer_question_for_user", answer)
@@ -317,6 +354,7 @@ def test_chinese_question_is_passed_unchanged_with_zh_locale(
             CHINESE_QUESTION,
             _fake_model,
             "zh-CN",
+            _fake_narrative_model,
         )
     ]
 
@@ -335,6 +373,7 @@ def test_chinese_answer_keeps_english_machine_contract(
     assert set(body) == {
         "status",
         "answer",
+        "natural_language_answer",
         "route",
         "validation",
         "analysis_tool",
@@ -342,6 +381,7 @@ def test_chinese_answer_keeps_english_machine_contract(
         "evidence",
     }
     assert body["answer"] == "时间点数量：1"
+    assert body["natural_language_answer"] is None
     assert body["route"] == "sql_then_python"
     assert body["validation"] == "valid"
     assert body["analysis_tool"] == "calculate_growth"
@@ -371,6 +411,7 @@ def test_empty_question_returns_422_without_agent_call(
     question: str,
 ) -> None:
     monkeypatch.setattr(api_module, "create_model", _unexpected)
+    monkeypatch.setattr(api_module, "create_natural_language_model", _unexpected)
     monkeypatch.setattr(api_module, "answer_question_for_user", _unexpected)
 
     response = client.post("/analyze", json={"question": question})
@@ -383,6 +424,7 @@ def test_non_string_question_returns_422(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(api_module, "create_model", _unexpected)
+    monkeypatch.setattr(api_module, "create_natural_language_model", _unexpected)
     monkeypatch.setattr(api_module, "answer_question_for_user", _unexpected)
 
     response = client.post("/analyze", json={"question": 123})
@@ -395,6 +437,7 @@ def test_request_rejects_api_key_and_route_override_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(api_module, "create_model", _unexpected)
+    monkeypatch.setattr(api_module, "create_natural_language_model", _unexpected)
     monkeypatch.setattr(api_module, "answer_question_for_user", _unexpected)
 
     response = client.post(
@@ -415,6 +458,62 @@ def test_request_contract_requires_only_question() -> None:
 
     assert schema["required"] == ["question"]
     assert set(schema["properties"]) == {"question"}
+
+
+def test_narrative_field_does_not_replace_deterministic_answer_or_evidence(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    narrative = NaturalLanguageAnswer("success", "共有 99441 个订单。", None)
+    _configure_result(
+        monkeypatch,
+        _final_result(natural_language_answer=narrative),
+    )
+
+    body = client.post("/analyze", json={"question": CHINESE_QUESTION}).json()
+
+    assert body["answer"] == "Result: 99441"
+    assert body["natural_language_answer"] == "共有 99441 个订单。"
+    assert body["route"] == "sql_only"
+    assert body["validation"] == "valid"
+    assert body["analysis_tool"] is None
+    assert body["evidence"]["generated_sql"] == (
+        "SELECT COUNT(*) AS order_count FROM orders"
+    )
+    assert body["evidence"]["trace"][0]["stage"] == "routing"
+
+
+def test_blocked_result_has_no_narrative_field_value(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure_result(monkeypatch, _blocked_result())
+
+    body = client.post("/analyze", json={"question": QUESTION}).json()
+
+    assert body["status"] == "blocked"
+    assert body["natural_language_answer"] is None
+
+
+def test_narrative_fallback_does_not_cause_http_500(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fallback = NaturalLanguageAnswer(
+        "fallback",
+        "Result: 99441",
+        "model_error: RuntimeError",
+    )
+    _configure_result(
+        monkeypatch,
+        _final_result(natural_language_answer=fallback),
+    )
+
+    response = client.post("/analyze", json={"question": QUESTION})
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "Result: 99441"
+    assert response.json()["natural_language_answer"] == "Result: 99441"
 
 
 def test_response_excludes_secrets_prompts_and_held_out_metadata(
@@ -542,6 +641,7 @@ def test_missing_database_returns_500_before_provider_creation(
 ) -> None:
     monkeypatch.setattr(api_module, "DEFAULT_DATABASE_PATH", tmp_path / "missing.db")
     monkeypatch.setattr(api_module, "create_model", _unexpected)
+    monkeypatch.setattr(api_module, "create_natural_language_model", _unexpected)
     monkeypatch.setattr(api_module, "answer_question_for_user", _unexpected)
 
     response = client.post("/analyze", json={"question": QUESTION})
@@ -552,4 +652,5 @@ def test_missing_database_returns_500_before_provider_creation(
 
 def test_api_module_has_no_eager_model_instance() -> None:
     assert not hasattr(api_module, "MODEL")
+    assert not hasattr(api_module, "NATURAL_LANGUAGE_MODEL")
     assert api_module.DEFAULT_DATABASE_PATH == Path("data/processed/olist.duckdb")

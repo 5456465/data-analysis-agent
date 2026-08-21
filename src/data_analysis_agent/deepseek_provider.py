@@ -1,4 +1,4 @@
-"""Minimal DeepSeek provider adapter for Text-to-SQL generation."""
+"""Minimal DeepSeek provider adapters for structured and plain-text calls."""
 
 from __future__ import annotations
 
@@ -45,5 +45,38 @@ class DeepSeekTextToSQLModel:
         )
         content = response.choices[0].message.content
         if not isinstance(content, str) or not content:
+            raise ValueError("DeepSeek returned empty response content.")
+        return content
+
+
+class DeepSeekNaturalLanguageModel:
+    """Call DeepSeek once and return plain-text response content unchanged."""
+
+    def __init__(
+        self,
+        *,
+        client: Any | None = None,
+        env_path: str | Path = PROJECT_ENV_PATH,
+    ) -> None:
+        if client is not None:
+            self._client = client
+            return
+
+        load_dotenv(dotenv_path=env_path, override=False)
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+        if not api_key or not api_key.strip():
+            raise ValueError(
+                "DEEPSEEK_API_KEY is required in the environment or project .env file."
+            )
+
+        self._client = OpenAI(api_key=api_key, base_url=DEEPSEEK_BASE_URL)
+
+    def __call__(self, prompt: str) -> str:
+        response = self._client.chat.completions.create(
+            model=DEEPSEEK_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        content = response.choices[0].message.content
+        if not isinstance(content, str) or not content.strip():
             raise ValueError("DeepSeek returned empty response content.")
         return content

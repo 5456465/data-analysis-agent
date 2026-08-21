@@ -7,6 +7,7 @@ from data_analysis_agent.answer_synthesis import AnswerSynthesis
 from data_analysis_agent.final_answer_service import FinalAnswerResult
 from data_analysis_agent.execution_trace import ExecutionTrace, TraceStep
 from data_analysis_agent.multi_tool_service import MultiToolQuestionResult
+from data_analysis_agent.natural_language_answer import NaturalLanguageAnswer
 from data_analysis_agent.python_analysis import (
     CorrelationResult,
     GrowthPoint,
@@ -23,6 +24,7 @@ from data_analysis_agent.streamlit_view import (
     extract_analysis_details,
     extract_growth_chart_data,
     format_execution_trace_for_display,
+    primary_answer_text,
     synthesis_is_blocked,
     synthesis_warnings,
 )
@@ -51,6 +53,7 @@ def _final_result(
     validation_status: str = "valid",
     operation: str = "calculate_growth",
     python_payload: object | None = None,
+    natural_language_answer: NaturalLanguageAnswer | None = None,
 ) -> FinalAnswerResult:
     sql_result = _sql_result()
     sql_answer = (
@@ -125,6 +128,7 @@ def _final_result(
             "Blocked." if blocked else "Result: 1",
             warnings,
         ),
+        natural_language_answer=natural_language_answer,
     )
 
 
@@ -179,6 +183,42 @@ def test_synthesis_warnings_are_returned_unchanged() -> None:
     assert synthesis_warnings(final) == ("First warning.", "Second warning.")
 
 
+def test_primary_answer_prefers_successful_natural_language_answer() -> None:
+    final = _final_result(
+        natural_language_answer=NaturalLanguageAnswer(
+            "success",
+            "共有 1 条结果。",
+            None,
+        )
+    )
+
+    assert primary_answer_text(final) == "共有 1 条结果。"
+    assert final.synthesis.answer == "Result: 1"
+
+
+def test_primary_answer_uses_deterministic_fallback_after_model_failure() -> None:
+    final = _final_result(
+        natural_language_answer=NaturalLanguageAnswer(
+            "fallback",
+            "Result: 1",
+            "model_error: RuntimeError",
+        )
+    )
+
+    assert primary_answer_text(final) == "Result: 1"
+
+
+def test_primary_answer_defaults_to_deterministic_synthesis() -> None:
+    assert primary_answer_text(_final_result()) == "Result: 1"
+
+
+def test_blocked_result_keeps_deterministic_blocked_message() -> None:
+    final = _final_result(blocked=True, validation_status="invalid")
+
+    assert synthesis_is_blocked(final) is True
+    assert primary_answer_text(final) == "Blocked."
+
+
 def test_helpers_do_not_modify_final_result() -> None:
     final = _final_result(repaired=True, warnings=("Warning.",))
     before = repr(final)
@@ -186,6 +226,7 @@ def test_helpers_do_not_modify_final_result() -> None:
     extract_analysis_details(final)
     synthesis_is_blocked(final)
     synthesis_warnings(final)
+    primary_answer_text(final)
     build_status_summary(final)
     extract_growth_chart_data(final)
 

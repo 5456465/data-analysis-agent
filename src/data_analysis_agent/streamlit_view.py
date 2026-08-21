@@ -158,6 +158,18 @@ def synthesis_is_blocked(final_result: FinalAnswerResult) -> bool:
     return final_result.synthesis.status == "blocked"
 
 
+def primary_answer_text(final_result: FinalAnswerResult) -> str:
+    """Prefer an available narrative while preserving deterministic fallback."""
+
+    if not isinstance(final_result, FinalAnswerResult):
+        raise TypeError("final_result must be a FinalAnswerResult instance.")
+
+    narrative = final_result.natural_language_answer
+    if narrative is not None and narrative.answer is not None:
+        return narrative.answer
+    return final_result.synthesis.answer
+
+
 def synthesis_warnings(final_result: FinalAnswerResult) -> tuple[str, ...]:
     """Return synthesis warnings unchanged for UI display."""
 
