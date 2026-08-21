@@ -24,6 +24,10 @@ from data_analysis_agent.sql_executor import SQLResult, run_readonly_sql
 NUMERIC_ABS_TOLERANCE = 0.01
 NUMERIC_REL_TOLERANCE = 1e-9
 REFERENCE_MAX_ROWS = 10_000
+_FRAMEWORK_UNSUPPORTED_OUTPUT_PREFIXES = (
+    "Unsupported route:",
+    "Unsupported Python operation:",
+)
 
 ActualDisposition = Literal["answer", "reject", "unknown"]
 
@@ -213,6 +217,9 @@ def _actual_disposition(actual: MultiToolQuestionResult) -> ActualDisposition:
         actual.status == "routing_error"
         and routing_error is not None
         and routing_error.code == "unsupported_route"
+        and not routing_error.message.startswith(
+            _FRAMEWORK_UNSUPPORTED_OUTPUT_PREFIXES
+        )
     ):
         return "reject"
 

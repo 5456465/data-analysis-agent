@@ -479,6 +479,71 @@ def test_controlled_routing_rejection_passes(database_path: Path) -> None:
     assert evaluation.passed is True
 
 
+def test_unsupported_route_value_is_not_a_controlled_rejection(
+    database_path: Path,
+) -> None:
+    actual = MultiToolQuestionResult(
+        question="test question",
+        route_decision=_route(
+            None,
+            None,
+            status="error",
+            error=ToolRoutingError(
+                "unsupported_route",
+                "Unsupported route: 'magic_route'",
+            ),
+        ),
+        status="routing_error",
+        sql_answer_result=None,
+        analysis_plan=None,
+        sql_result=None,
+        python_result=None,
+        error=MultiToolQuestionError("routing_error", "unsupported route value"),
+    )
+
+    evaluation = evaluate_held_out_case(_reject_question(), actual, database_path)
+
+    assert evaluation.actual_disposition == "unknown"
+    assert evaluation.passed is False
+    assert evaluation.failure_reason == (
+        "model/infrastructure error is not a semantic rejection"
+    )
+
+
+def test_unsupported_python_operation_is_not_a_controlled_rejection(
+    database_path: Path,
+) -> None:
+    actual = MultiToolQuestionResult(
+        question="test question",
+        route_decision=_route(
+            None,
+            None,
+            status="error",
+            error=ToolRoutingError(
+                "unsupported_route",
+                "Unsupported Python operation: 'forecast'",
+            ),
+        ),
+        status="routing_error",
+        sql_answer_result=None,
+        analysis_plan=None,
+        sql_result=None,
+        python_result=None,
+        error=MultiToolQuestionError(
+            "routing_error",
+            "unsupported Python operation",
+        ),
+    )
+
+    evaluation = evaluate_held_out_case(_reject_question(), actual, database_path)
+
+    assert evaluation.actual_disposition == "unknown"
+    assert evaluation.passed is False
+    assert evaluation.failure_reason == (
+        "model/infrastructure error is not a semantic rejection"
+    )
+
+
 def test_controlled_sql_generation_rejection_passes(database_path: Path) -> None:
     sql_answer = QuestionAnswerResult(
         question="test question",
@@ -521,14 +586,18 @@ def test_successful_answer_when_rejection_expected_fails(database_path: Path) ->
     )
 
 
-def test_model_error_is_not_a_controlled_rejection(database_path: Path) -> None:
+@pytest.mark.parametrize("error_code", ["invalid_model_output", "model_error"])
+def test_model_error_is_not_a_controlled_rejection(
+    database_path: Path,
+    error_code: str,
+) -> None:
     actual = MultiToolQuestionResult(
         question="test question",
         route_decision=_route(
             None,
             None,
             status="error",
-            error=ToolRoutingError("model_error", "provider unavailable"),
+            error=ToolRoutingError(error_code, "provider unavailable"),
         ),
         status="routing_error",
         sql_answer_result=None,
