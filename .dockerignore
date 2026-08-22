@@ -29,7 +29,8 @@ htmlcov/
 tests/
 evaluation/
 docs/
-scripts/
+scripts/*
+!scripts/stage_database.py
 AGENTS.md
 
 data/raw/
@@ -43,7 +44,6 @@ data/processed/*
 *.sqlite3
 *.sqlite3-*
 *.parquet
-!data/processed/olist.duckdb
 
 *.log
 logs/
